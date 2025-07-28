@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 
 # Load the dataset
-file_path = r'C:/Users/KASMYA/OneDrive/Documents/comp science/skindataall.csv'
+file_path = "skindataall.csv"
 try:
     skin_data = pd.read_csv(file_path)
 except FileNotFoundError:
