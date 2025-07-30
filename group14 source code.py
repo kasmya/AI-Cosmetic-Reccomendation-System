@@ -5,11 +5,20 @@ import cv2
 import numpy as np
 
 # Load the dataset
-file_path = r'C:/Users/KASMYA/OneDrive/Documents/comp science/skindataall.csv'
+import os
+
+# Get the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Create the full path to the CSV file
+file_path = os.path.join(script_dir, 'skindataall.csv')
+
 try:
     skin_data = pd.read_csv(file_path)
 except FileNotFoundError:
-    messagebox.showerror("Error", "Dataset file not found. Please check the file path.")
+    messagebox.showerror("Error", f"Dataset file not found at: {file_path}")
+    exit()
+except Exception as e:
+    messagebox.showerror("Error", f"Error loading dataset: {str(e)}")
     exit()
 
 # Preprocess dataset
