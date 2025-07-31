@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Cosmetic Analyzer - Personalized Beauty Recommendations</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: slideDown 1s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: white;
+            font-size: 3.2rem;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.7);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .analysis-panel, .results-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: slideUp 1s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .panel-title {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .panel-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 3px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 2px;
+        }
+
+        .camera-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #videoElement {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .camera-placeholder {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #ccc;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .camera-placeholder:hover {
+            transform: scale(1.02);
+            border-color: #667eea;
+        }
+
+        .placeholder-text {
+            text-align: center;
+            color: #666;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .analysis-results {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 15px;
+            display: none;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .recommendations {
+            display: none;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            transform: translateY(20px);
+            opacity: 0;
+            animation: cardSlideIn 0.6s ease forwards;
+        }
+
+        @keyframes cardSlideIn {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .product-image {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #ff9a9e, #fecfef);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            color: white;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-particles" id="particles"></div>
+    
+    <div class="container">
+        <header>
+            <h1>AI Cosmetic Analyzer</h1>
+            <p class="subtitle">Discover your perfect beauty match with advanced facial analysis</p>
+        </header>
+
+        <div class="main-content">
+            <div class="analysis-panel">
+                <h2 class="panel-title">📸 Facial Analysis</h2>
+                
+                <div class="camera-container">
+                    <div class="camera-placeholder" id="cameraPlaceholder">
+                        <div class="placeholder-text">
+                            <div style="font-size: 3rem; margin-bottom: 10px;">📷</div>
+                            <p>Click "Start Camera" to begin analysis</p>
+                        </div>
+                    </div>
+                    <video id="videoElement" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
+
+                <div style="text-align: center;">
+                    <button class="btn" id="startCamera">Start Camera</button>
+                    <button class="btn" id="capturePhoto" disabled>Capture & Analyze</button>
+                    <button class="btn" id="stopCamera" disabled>Stop Camera</button>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing your facial features...</p>
+                </div>
+
+                <div class="analysis-results" id="analysisResults">
+                    <h3>Analysis Results</h3>
+                    <div id="resultsContent"></div>
+                </div>
+            </div>
+
+            <div class="results-panel">
+                <h2 class="panel-title">✨ Personalized Recommendations</h2>
+                
+                <div class="recommendations" id="recommendations">
+                    <p style="text-align: center; color: #666; margin-bottom: 20px;">
+                        Complete facial analysis to see your personalized product recommendations
+                    </p>
+                    <div class="product-grid" id="productGrid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <span class="feature-icon">🎯</span>
+                <h3>Precision Analysis</h3>
+                <p>Advanced AI algorithms analyze your unique facial features and skin characteristics</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🌈</span>
+                <h3>Skin Tone Detection</h3>
+                <p>Accurate skin tone analysis for perfect color matching across all product categories</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">💄</span>
+                <h3>Smart Recommendations</h3>
+                <p>Personalized product suggestions based on your unique features and preferences</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">⚡</span>
+                <h3>Real-time Processing</h3>
+                <p>Instant analysis and recommendations powered by cutting-edge computer vision</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- <script>
+        // Global variables
+        let videoStream = null;
+        let isAnalyzing = false;
+
+        // Initialize floating particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Camera controls
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    } 
+                });
+                
+                const video = document.getElementById('videoElement');
+                const placeholder = document.getElementById('cameraPlaceholder');
+                
+                video.srcObject = stream;
+                videoStream = stream;
+                
+                placeholder.style.display = 'none';
+                video.style.display = 'block';
+                
+                document.getElementById('startCamera').disabled = true;
+                document.getElementById('capturePhoto').disabled = false;
+                document.getElementById('stopCamera').disabled = false;
+                
+            } catch (error) {
+                alert('Camera access denied or not available. Please ensure you have a camera connected and grant permission.');
+                console.error('Camera error:', error);
+            }
+        }
+
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            
+            const video = document.getElementById('videoElement');
+            const placeholder = document.getElementById('cameraPlaceholder');
+            
+            video.style.display = 'none';
+            placeholder.style.display = 'flex';
+            
+            document.getElementById('startCamera').disabled = false;
+            document.getElementById('capturePhoto').disabled = true;
+            document.getElementById('stopCamera').disabled = true;
+        }
+
+        // Simulated facial analysis
+        function analyzeFace() {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    // Simulated analysis results
+                    const skinTones = ['Fair', 'Light', 'Medium', 'Tan', 'Deep'];
+                    const undertones = ['Cool', 'Warm', 'Neutral'];
+                    const faceShapes = ['Oval', 'Round', 'Square', 'Heart', 'Long'];
+                    
+                    const results = {
+                        skinTone: skinTones[Math.floor(Math.random() * skinTones.length)],
+                        undertone: undertones[Math.floor(Math.random() * undertones.length)],
+                        faceShape: faceShapes[Math.floor(Math.random() * faceShapes.length)],
+                        dominantFeatures: ['Eyes', 'Lips', 'Cheekbones'],
+                        confidence: (85 + Math.random() * 10).toFixed(1)
+                    };
+                    
+                    resolve(results);
+                }, 2000);
+            });
+        }
+
+        // Generate product recommendations
+        function generateRecommendations(analysisResults) {
+            const products = [
+                {
+                    name: 'Perfect Match Foundation',
+                    type: 'Foundation',
+                    match: '95%',
+                    icon: '🎨',
+                    reason: `Ideal for ${analysisResults.skinTone.toLowerCase()} skin with ${analysisResults.undertone.toLowerCase()} undertones`
+                },
+                {
+                    name: 'Signature Lipstick',
+                    type: 'Lipstick',
+                    match: '92%',
+                    icon: '💋',
+                    reason: 'Complements your natural lip shape and skin tone'
+                },
+                {
+                    name: 'Contour Palette',
+                    type: 'Contouring',
+                    match: '88%',
+                    icon: '✨',
+                    reason: `Perfect for enhancing your ${analysisResults.faceShape.toLowerCase()} face shape`
+                },
+                {
+                    name: 'Eye Shadow Collection',
+                    type: 'Eye Makeup',
+                    match: '90%',
+                    icon: '👁️',
+                    reason: 'Enhances your eye color and complements your skin tone'
+                }
+            ];
+
+            return products;
+        }
+
+        // Display analysis results
+        function displayResults(results) {
+            const resultsContent = document.getElementById('resultsContent');
+            const analysisResults = document.getElementById('analysisResults');
+            
+            resultsContent.innerHTML = `
+                <div class="result-item">
+                    <strong>Skin Tone:</strong> ${results.skinTone} (${results.undertone} undertone)
+                </div>
+                <div class="result-item">
+                    <strong>Face Shape:</strong> ${results.faceShape}
+                </div>
+                <div class="result-item">
+                    <strong>Key Features:</strong> ${results.dominantFeatures.join(', ')}
+                </div>
+                <div class="result-item">
+                    <strong>Analysis Confidence:</strong> ${results.confidence}%
+                </div>
+            `;
+            
+            analysisResults.style.display = 'block';
+        }
+
+        // Display product recommendations
+        function displayRecommendations(products) {
+            const productGrid = document.getElementById('productGrid');
+            const recommendations = document.getElementById('recommendations');
+            
+            productGrid.innerHTML = '';
+            
+            products.forEach((product, index) => {
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card';
+                productCard.style.animationDelay = (index * 0.1) + 's';
+                
+                productCard.innerHTML = `
+                    <div class="product-image">${product.icon}</div>
+                    <h4>${product.name}</h4>
+                    <p style="color: #667eea; font-weight: bold;">${product.match} Match</p>
+                    <p style="font-size: 0.9em; color: #666; margin-top: 10px;">${product.reason}</p>
+                `;
+                
+                productGrid.appendChild(productCard);
+            });
+            
+            recommendations.style.display = 'block';
+        }
+
+        // Capture and analyze photo
+        async function captureAndAnalyze() {
+            if (isAnalyzing) return;
+            
+            isAnalyzing = true;
+            const loading = document.getElementById('loading');
+            
+            // Show loading
+            loading.style.display = 'block';
+            
+            try {
+                // Perform analysis
+                const results = await analyzeFace();
+                
+                // Hide loading
+                loading.style.display = 'none';
+                
+                // Display results
+                displayResults(results);
+                
+                // Generate and display recommendations
+                const recommendations = generateRecommendations(results);
+                displayRecommendations(recommendations);
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                loading.style.display = 'none';
+                alert('Analysis failed. Please try again.');
+            } finally {
+                isAnalyzing = false;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('startCamera').addEventListener('click', startCamera);
+        document.getElementById('stopCamera').addEventListener('click', stopCamera);
+        document.getElementById('capturePhoto').addEventListener('click', captureAndAnalyze);
+
+        // Initialize particles on page load
+        document.addEventListener('DOMContentLoaded', createParticles);
+
+        // Add smooth scrolling animations for cards
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animationPlayState = 'running';
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animated elements
+        document.addEventListener('DOMContentLoaded', () => {
+            const animatedElements = document.querySelectorAll('.feature-card, .analysis-panel, .results-panel');
+            animatedElements.forEach(el => observer.observe(el));
+        });
+    </script> -->
+</body>
+</html>
