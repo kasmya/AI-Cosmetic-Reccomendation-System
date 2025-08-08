@@ -103,9 +103,16 @@ def detect_skin_concerns_from_image(image_path):
 def display_recommendations():
     user_skin_type = skin_type_var.get().lower()
     user_concerns = concerns_var.get()
+    top_n_input = top_n_var.get()
     
     if not user_skin_type or not user_concerns:
         messagebox.showwarning("Input Error", "Please fill in all fields!")
+        return
+    
+    try:
+        top_n = int(top_n_input)
+    except ValueError:
+        messagebox.showwarning("Input Error", "Please enter an integer for the Top N recommendations.")
         return
     
     message, recommendations = recommend_products(user_skin_type, user_concerns.split(","))
@@ -116,7 +123,13 @@ def display_recommendations():
     ttk.Label(results_frame, text=message, font=("Helvetica", 12, "bold"), background="#FFC0CB").pack(pady=10)
     
     if recommendations:
-        for product in recommendations:
+        #Sort by rating and fetch top N recommendations
+        try:
+            sorted_recommendations = sorted(recommendations, key=lambda x: x['rating'], reverse=True)[:top_n]
+        except Exception:
+            sorted_recommendations=recommendations
+        
+        for product in sorted_recommendations[:top_n]:
             ttk.Label(
                 results_frame,
                 text=f"{product['name']} by {product['brand']} ({product['category']})\n"
@@ -169,6 +182,13 @@ concerns_label.pack(pady=5)
 concerns_var = tk.StringVar()
 concerns_entry = tk.Entry(root, textvariable=concerns_var, width=50)
 concerns_entry.pack(pady=5)
+
+#Top N input
+top_n_label = tk.Label(root, text="Number of Top Recommendations:", font=("Helvetica", 12), bg="#FFC0CB", fg="black")
+top_n_label.pack(pady=5)
+top_n_var = tk.StringVar(value="5")
+top_n_entry = tk.Entry(root, textvariable=top_n_var, width=10)
+top_n_entry.pack(pady=5)
 
 # Buttons for modes
 tk.Button(root, text="Direct Recommendation", command=display_recommendations, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
