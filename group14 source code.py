@@ -103,17 +103,15 @@ def detect_skin_concerns_from_image(image_path):
 def display_recommendations():
     user_skin_type = skin_type_var.get().lower()
     user_concerns = concerns_var.get()
-    top_n_input = top_n_var.get()
+    # No need for try/except to check valueError as dropdown enforces valid numbers:
+    # top_n_input = top_n_var.get()
     
     if not user_skin_type or not user_concerns:
         messagebox.showwarning("Input Error", "Please fill in all fields!")
         return
     
-    try:
-        top_n = int(top_n_input)
-    except ValueError:
-        messagebox.showwarning("Input Error", "Please enter an integer for the Top N recommendations.")
-        return
+    #getting top N value directly from dropdown
+    top_n = int(top_n_var.get())
     
     message, recommendations = recommend_products(user_skin_type, user_concerns.split(","))
     
@@ -187,8 +185,8 @@ concerns_entry.pack(pady=5)
 top_n_label = tk.Label(root, text="Number of Top Recommendations:", font=("Helvetica", 12), bg="#FFC0CB", fg="black")
 top_n_label.pack(pady=5)
 top_n_var = tk.StringVar(value="5")
-top_n_entry = tk.Entry(root, textvariable=top_n_var, width=10)
-top_n_entry.pack(pady=5)
+top_n_dropdown = ttk.Combobox(root, textvariable=top_n_var, values=["3", "5", "10"], state="readonly", width=10)
+top_n_dropdown.pack(pady=5)
 
 # Buttons for modes
 tk.Button(root, text="Direct Recommendation", command=display_recommendations, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
