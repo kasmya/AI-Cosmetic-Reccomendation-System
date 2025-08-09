@@ -7,6 +7,8 @@ import numpy as np
 # Load the dataset
 import os
 
+latest_recommendations = []
+
 # Get the directory where the script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # Create the full path to the CSV file
@@ -103,15 +105,18 @@ def detect_skin_concerns_from_image(image_path):
 def display_recommendations():
     user_skin_type = skin_type_var.get().lower()
     user_concerns = concerns_var.get()
-    # No need for try/except to check valueError as dropdown enforces valid numbers:
-    # top_n_input = top_n_var.get()
+    top_n_input = top_n_var.get()
+    global latest_recommendations
     
     if not user_skin_type or not user_concerns:
         messagebox.showwarning("Input Error", "Please fill in all fields!")
         return
     
-    #getting top N value directly from dropdown
-    top_n = int(top_n_var.get())
+    try:
+        top_n = int(top_n_input)
+    except ValueError:
+        messagebox.showwarning("Input Error", "Please enter an integer for the Top N recommendations.")
+        return
     
     message, recommendations = recommend_products(user_skin_type, user_concerns.split(","))
     
@@ -127,6 +132,7 @@ def display_recommendations():
         except Exception:
             sorted_recommendations=recommendations
         
+        latest_recommendations = sorted_recommendations  #save for download
         for product in sorted_recommendations[:top_n]:
             ttk.Label(
                 results_frame,
@@ -139,6 +145,24 @@ def display_recommendations():
             ).pack(fill="x", padx=10, pady=5)
     else:
         ttk.Label(results_frame, text="Try different criteria for better results.", font=("Helvetica", 10, "italic"), background="#FFC0CB").pack(pady=10)
+
+def download_recommendations_csv():
+    if not latest_recommendations:
+        messagebox.showwarning("No Data", "No recommendations to download. Please run a search first.")
+        return
+    
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("CSV files", "*.csv")],
+        title="Save Recommendations As"
+    )
+    if file_path:
+        try:
+            df = pd.DataFrame(latest_recommendations)
+            df.to_csv(file_path, index=False)
+            messagebox.showinfo("Success", f"Recommendations saved to {file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save CSV: {str(e)}")
 
 def use_webcam_for_concerns():
     detected_concerns = detect_skin_concerns_from_webcam()
@@ -185,13 +209,14 @@ concerns_entry.pack(pady=5)
 top_n_label = tk.Label(root, text="Number of Top Recommendations:", font=("Helvetica", 12), bg="#FFC0CB", fg="black")
 top_n_label.pack(pady=5)
 top_n_var = tk.StringVar(value="5")
-top_n_dropdown = ttk.Combobox(root, textvariable=top_n_var, values=["3", "5", "10"], state="readonly", width=10)
-top_n_dropdown.pack(pady=5)
+top_n_entry = tk.Entry(root, textvariable=top_n_var, width=10)
+top_n_entry.pack(pady=5)
 
 # Buttons for modes
 tk.Button(root, text="Direct Recommendation", command=display_recommendations, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
 tk.Button(root, text="Use Webcam", command=use_webcam_for_concerns, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
 tk.Button(root, text="Upload Image", command=upload_image_for_concerns, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
+tk.Button(root, text="Download as CSV", command=download_recommendations_csv, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
 
 # Results frame
 results_frame = tk.Frame(root, bg="#FFC0CB")
