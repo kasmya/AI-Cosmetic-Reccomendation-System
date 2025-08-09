@@ -159,6 +159,16 @@ def download_recommendations_csv():
     if file_path:
         try:
             df = pd.DataFrame(latest_recommendations)
+            export_columns = [
+                "name",
+                "brand",
+                "category",
+                "skin_type",
+                "Price",
+                "key_ingredients",
+                "url"
+            ]
+            df = df[[col for col in export_columns if col in df.columns]]
             df.to_csv(file_path, index=False)
             messagebox.showinfo("Success", f"Recommendations saved to {file_path}")
         except Exception as e:
