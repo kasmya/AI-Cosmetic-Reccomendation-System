@@ -7,6 +7,8 @@ import numpy as np
 # Load the dataset
 import os
 
+latest_recommendations = []
+
 # Get the directory where the script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # Create the full path to the CSV file
@@ -104,6 +106,7 @@ def display_recommendations():
     user_skin_type = skin_type_var.get().lower()
     user_concerns = concerns_var.get()
     top_n_input = top_n_var.get()
+    global latest_recommendations
     
     if not user_skin_type or not user_concerns:
         messagebox.showwarning("Input Error", "Please fill in all fields!")
@@ -129,6 +132,7 @@ def display_recommendations():
         except Exception:
             sorted_recommendations=recommendations
         
+        latest_recommendations = sorted_recommendations  #save for download
         for product in sorted_recommendations[:top_n]:
             ttk.Label(
                 results_frame,
@@ -141,6 +145,34 @@ def display_recommendations():
             ).pack(fill="x", padx=10, pady=5)
     else:
         ttk.Label(results_frame, text="Try different criteria for better results.", font=("Helvetica", 10, "italic"), background="#FFC0CB").pack(pady=10)
+
+def download_recommendations_csv():
+    if not latest_recommendations:
+        messagebox.showwarning("No Data", "No recommendations to download. Please run a search first.")
+        return
+    
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("CSV files", "*.csv")],
+        title="Save Recommendations As"
+    )
+    if file_path:
+        try:
+            df = pd.DataFrame(latest_recommendations)
+            export_columns = [
+                "name",
+                "brand",
+                "category",
+                "skin_type",
+                "Price",
+                "key_ingredients",
+                "url"
+            ]
+            df = df[[col for col in export_columns if col in df.columns]]
+            df.to_csv(file_path, index=False)
+            messagebox.showinfo("Success", f"Recommendations saved to {file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save CSV: {str(e)}")
 
 def use_webcam_for_concerns():
     detected_concerns = detect_skin_concerns_from_webcam()
@@ -194,6 +226,7 @@ top_n_entry.pack(pady=5)
 tk.Button(root, text="Direct Recommendation", command=display_recommendations, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
 tk.Button(root, text="Use Webcam", command=use_webcam_for_concerns, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
 tk.Button(root, text="Upload Image", command=upload_image_for_concerns, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
+tk.Button(root, text="Download as CSV", command=download_recommendations_csv, bg="#FF69B4", fg="white", font=("Helvetica", 12)).pack(pady=10)
 
 # Results frame
 results_frame = tk.Frame(root, bg="#FFC0CB")
