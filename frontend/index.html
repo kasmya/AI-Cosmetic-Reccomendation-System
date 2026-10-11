@@ -9,7 +9,8 @@
        #step-quiz      GET  /api/v1/skin/questionnaire, POST /api/v1/skin/assess   concern scoring with reasons
        #step-photo     POST /api/v1/face/analyze                  raw image bytes -> skin colour + tone + low-confidence hints
        #res-*          POST /api/v1/consult                       profile, skincare (+alternatives), makeup, routine, shopping
-       #res-product    GET  /api/v1/products/{id}                 detail + review summary (planned)
+       #res-product    GET  /api/v1/products/{id}                 detail + review summary (themes, pros/cons, quotes)
+                       GET  /api/v1/products/{id}/score           AICosmetic score with breakdown
                        GET  /api/v1/products/{id}/web             live web results (needs TAVILY_API_KEY on the server)
        #step-browse    GET  /api/v1/catalog/search, /catalog/stats browse every source
      Each section reports status: live | provisional | planned. -->
@@ -217,15 +218,36 @@ async function loadWeb(pid) {
   } catch (e) { $('web-body').textContent = e.message; }
 }
 
-/* ---- product detail (GET /api/v1/products/{id}) ---- */
+/* ---- product detail: GET /api/v1/products/{id}, /products/{id}/score ---- */
+const fmtPct = x => x == null ? 'n/a' : Math.round(x * 100) + '%';
+function scoreBlock(sc) {
+  const b = sc.breakdown, pts = Object.entries(b.points).map(([k, v]) =>
+    `<li>${esc(k)}: ${esc(v)} points <span class="meta">(weight ${esc(b.weights[k])}${k === 'reviews' ? ', based on ' + esc(b.review_basis) : ''})</span></li>`).join('');
+  return `<h3>AICosmetic score: ${esc(sc.aicosmetic_score)}/100, ${esc(sc.verdict)} <span class="badge">confidence ${esc(b.confidence)}</span></h3>
+    <ul>${pts}${b.penalty ? `<li>penalty: -${esc(b.penalty)} (contains ${esc(b.ingredient_flags.join(', '))})</li>` : ''}</ul>
+    <p class="meta">${esc(sc.how_it_works)}</p>`;
+}
+function reviewBlock(r) {
+  const themes = r.themes.map(t => `<li>${esc(t.aspect)}: ${esc(t.verdict)} <span class="meta">(${esc(t.mentions)} mentions)</span></li>`).join('');
+  return `<h3>What reviewers say ${badge(r.status)}</h3>
+    <p class="meta">${esc(r.n_reviews)} reviews, ${fmtPct(r.sentiment)} positive${r.skin_type_reviews ? `; ${esc(r.skin_type_reviews)} from your skin type, ${fmtPct(r.skin_type_sentiment)} positive` : ''}</p>
+    ${r.pros.length ? `<p><b>Praised:</b> ${esc(r.pros.join(', '))}</p>` : ''}${r.cons.length ? `<p><b>Criticised:</b> ${esc(r.cons.join(', '))}</p>` : ''}
+    <ul>${themes}</ul>
+    ${r.quote_items.map(q => `<blockquote class="meta">"${esc(q.text)}" (${esc(q.stars)} stars, ${esc(q.sentiment)})</blockquote>`).join('')}
+    <p class="meta">${esc(r.note)}</p>`;
+}
 document.addEventListener('click', async e => {
   const pid = e.target.dataset && e.target.dataset.pid; if (!pid) return;
   const box = $('res-product'); box.hidden = false; box.querySelector('.body').textContent = 'Loading…';
+  const q = new URLSearchParams(), st = $('skin_type').value;
+  if (st) q.set('skin_type', st);
+  const concernNames = lastAssess ? lastAssess.concerns.map(c => c.concern) : picked('concerns');
+  const qs = new URLSearchParams(q); concernNames.forEach(c => qs.append('concerns', c));
   try {
-    const p = await api(`/api/v1/products/${pid}`), r = p.review_summary;
+    const [p, sc] = await Promise.all([api(`/api/v1/products/${pid}?${q}`), api(`/api/v1/products/${pid}/score?${qs}`)]);
     box.querySelector('.body').innerHTML = `<b>${esc(p.name)}</b> <span class="meta">${esc(p.brand)} · ${esc(p.category)} · $${esc(p.price)}</span>
-      <p class="meta">Ingredients: ${esc(p.ingredients.join(', '))}</p>
-      <h3>Review summary ${badge(r.status)}</h3><p class="meta">${r.status === 'planned' ? 'Review summaries arrive in Phase 4.' : esc(JSON.stringify(r.themes))}</p>
+      ${scoreBlock(sc)}${reviewBlock(p.review_summary)}
+      <p class="meta">Ingredients: ${esc(p.ingredients.join(', ') || 'not available')}</p>
       <h3>From the web <span id="web-badge"></span></h3><div id="web-body" class="meta">Loading…</div>`;
     loadWeb(pid);
     box.scrollIntoView({behavior: 'smooth'});

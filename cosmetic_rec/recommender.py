@@ -12,9 +12,11 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.decomposition import TruncatedSVD
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import GroupKFold
 
 from .concerns import helpful_hits, watch_hits
 from .data import LABELS, SKIN_TYPES, build_products
@@ -96,8 +98,11 @@ class Recommender:
         X = self._design(reviews["Skin_Type"], reviews["Product_id"].to_numpy(), reviews["Skin_Tone"])
         self.columns = list(X.columns)
         y = (reviews["Rating_Stars"] >= 4).astype(int).to_numpy()
-        self.clf = HistGradientBoostingClassifier(
-            max_depth=3, learning_rate=0.05, max_iter=200, random_state=self.seed).fit(X, y)
+        # Platt-scaled with user-grouped folds, so the probabilities are fitted on users the model did not see.
+        folds = list(GroupKFold(5).split(X, y, reviews["User_id"]))
+        self.clf = CalibratedClassifierCV(
+            HistGradientBoostingClassifier(max_depth=3, learning_rate=0.05, max_iter=200, random_state=self.seed),
+            method="sigmoid", cv=folds).fit(X, y)
         return self
 
     # ---------- inference ----------

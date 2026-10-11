@@ -66,6 +66,6 @@ def test_product_detail_and_review_summary_contract(client):
     r = client.get("/api/v1/products/0")
     pid = client.get("/skincare/products?limit=1").json()[0]["Product_id"]
     r = client.get(f"/api/v1/products/{pid}")
-    assert r.status_code == 200 and r.json()["review_summary"]["status"] == "planned"
+    assert r.status_code == 200 and r.json()["review_summary"]["status"] == "live"
     assert client.get(f"/api/v1/products/{pid}/reviews/summary").status_code == 200
     assert client.get("/api/v1/products/999999").status_code == 404

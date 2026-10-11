@@ -6,7 +6,7 @@ Every section of a response carries `status`:
   planned      not built yet; empty or illustrative, shape is final
 See docs/PLAN.md for the phase each planned section lands in.
 """
-from typing import Literal
+from typing import Annotated, Literal
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Path, Query, Request
@@ -16,6 +16,7 @@ from . import concerns as cx
 from .concerns import CONCERNS
 from .data import SKIN_TYPES
 from .recommender import UserProfile
+from .score import combine, confidence, review_component
 from .state import state
 from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_hex_to_lab
 
@@ -93,10 +94,15 @@ class ConsultRequest(BaseModel):
 
 
 class ScoreBreakdown(BaseModel):
-    model_like_probability: float
-    review_sentiment: float | None = None   # Phase 4
-    concern_fit: float | None = None        # Phase 3/4
-    ingredient_flags: list[str] = []     # ingredients often reported as aggravating for the user's concerns
+    model_like_probability: float            # calibrated P(user rates it 4-5 stars)
+    review_sentiment: float | None = None    # smoothed share of positive reviews (skin-matched when possible)
+    review_basis: str = ""                   # which reviewers that share is based on
+    concern_fit: float | None = None         # 0-1, only when the user has concerns
+    ingredient_flags: list[str] = []         # ingredients often reported as aggravating for the user's concerns
+    points: dict[str, float] = {}            # each component's contribution to the 0-100 score
+    weights: dict[str, float] = {}
+    penalty: int = 0
+    confidence: str = ""                     # low / medium / high, from the number of reviews
 
 
 class Alternative(BaseModel):
@@ -171,13 +177,33 @@ class ConsultResponse(BaseModel):
     disclaimer: str = NOT_MEDICAL
 
 
+class ThemeItem(BaseModel):
+    aspect: str
+    mentions: int
+    sentiment: float
+    verdict: Literal["praised", "criticised", "typical"]   # relative to how all products score on this aspect
+
+
+class QuoteItem(BaseModel):
+    text: str
+    sentiment: Literal["positive", "critical"]
+    stars: int
+
+
 class ReviewSummary(BaseModel):
     status: Status
     product_id: int
     n_reviews: int
-    sentiment: float | None
+    sentiment: float | None                  # raw share of positive (4-5 star) reviews
+    skin_type_reviews: int = 0               # reviews from people with the requested skin type
+    skin_type_sentiment: float | None = None
     themes: list[dict]
+    pros: list[str] = []
+    cons: list[str] = []
     quotes: list[str]
+    quote_items: list[QuoteItem] = []
+    confidence: str = ""
+    note: str = ""
 
 
 class CatalogProduct(BaseModel):
@@ -233,9 +259,39 @@ def _assess(skin_type, selected, answers=None, photo_hints=None) -> AssessRespon
                           photo_hints_used=bool(photo_hints))
 
 
-def _review_summary(product_id: int) -> ReviewSummary:
-    n = int(state["rec"].products.loc[product_id, "n_reviews"]) if "n_reviews" in state["rec"].products else 0
-    return ReviewSummary(status="planned", product_id=product_id, n_reviews=n, sentiment=None, themes=[], quotes=[])
+def _review_summary(product_id: int, skin_type: str | None = None) -> ReviewSummary:
+    intel = state["intel"]
+    c = intel.counts(product_id, skin_type)
+    themes = intel.themes(product_id)
+    quotes = intel.quotes(product_id)
+    share = round(c["pos"] / c["n"], 3) if c["n"] else None
+    skin_share = round(c["pos_skin"] / c["n_skin"], 3) if c["n_skin"] else None
+    return ReviewSummary(
+        status="live", product_id=product_id, n_reviews=c["n"], sentiment=share,
+        skin_type_reviews=c["n_skin"], skin_type_sentiment=skin_share,
+        themes=[{"aspect": t.aspect, "mentions": t.mentions, "sentiment": t.sentiment, "verdict": t.verdict}
+                for t in themes],
+        pros=[t.aspect for t in themes if t.verdict == "praised"],
+        cons=[t.aspect for t in themes if t.verdict == "criticised"],
+        quotes=[q["text"] for q in quotes], quote_items=[QuoteItem(**q) for q in quotes],
+        confidence=confidence(c["n"]),
+        note="Themes and quotes come from our dataset's user-written reviews. Polarity is a model estimate.")
+
+
+def _score(product_id: int, p_like: float, skin_type: str | None,
+           concerns: list[str]) -> tuple[int, str, ScoreBreakdown]:
+    """The AICosmetic score for one product (formula and weights: see score.py)."""
+    intel = state["intel"]
+    ingredients = state["rec"].products.at[product_id, "Ingredients"]
+    counts = intel.counts(product_id, skin_type)
+    share, basis = review_component(counts, intel.global_share, skin_type)
+    fit = cx.concern_fit(concerns, ingredients)
+    flags = cx.watch_flags(concerns, ingredients)
+    result = combine(p_like, share, fit, len(flags))
+    return result["score"], result["verdict"], ScoreBreakdown(
+        model_like_probability=round(p_like, 3), review_sentiment=round(share, 3), review_basis=basis,
+        concern_fit=None if fit is None else round(fit, 2), ingredient_flags=flags, points=result["points"],
+        weights=result["weights"], penalty=result["penalty"], confidence=confidence(counts["n"]))
 
 
 # ---------------- endpoints ----------------
@@ -281,16 +337,12 @@ def _alternatives(product_id: int) -> list[Alternative]:
                         url=r.url if isinstance(r.url, str) else None) for r in similar.itertuples()]
 
 
-def _skincare_item(r) -> SkincareItem:
-    """Provisional score: the model's P(like) as 0-100. Phase 4 replaces it with the full blended score."""
-    score = int(round(100 * r.p_like))
+def _skincare_item(r, skin_type: str | None, concerns: list[str]) -> SkincareItem:
+    score, verdict, breakdown = _score(int(r.Product_id), float(r.p_like), skin_type, concerns)
     return SkincareItem(
         product_id=int(r.Product_id), name=r.Product, brand=r.Brand, category=r.Category, price=float(r.Price),
-        source="sephora_reviews", aicosmetic_score=score, verdict=_verdict(score), score_status="provisional",
-        breakdown=ScoreBreakdown(model_like_probability=round(float(r.p_like), 3),
-                                 concern_fit=round(float(r.concern_fit), 2) if r.concern_fit else None,
-                                 ingredient_flags=r.ingredient_flags), why=r.why,
-        alternatives=_alternatives(int(r.Product_id)))
+        source="sephora_reviews", aicosmetic_score=score, verdict=verdict, score_status="live",
+        breakdown=breakdown, why=r.why, alternatives=_alternatives(int(r.Product_id)))
 
 
 def _foundation(skin_hex: str | None) -> MakeupSection:
@@ -327,7 +379,7 @@ def consult(req: ConsultRequest):
                               category=category, max_price=req.max_price_per_item,
                               avoid_ingredients=req.avoid_ingredients)
         out = rec.recommend(profile, k=req.per_category).reset_index()
-        skincare[category] = [_skincare_item(r) for r in out.itertuples()]
+        skincare[category] = [_skincare_item(r, skin_type, active_concerns) for r in out.itertuples()]
 
     planned = MakeupSection(status="planned", note="Colour-harmony palettes land in Phase 5.")
     makeup = MakeupLook(skin_hex=req.skin_hex, tone=req.skin_tone, foundation=_foundation(req.skin_hex),
@@ -336,12 +388,12 @@ def consult(req: ConsultRequest):
     shopping = {"status": "provisional", "items": [i.product_id for i in picks],
                 "total_price": round(sum(i.price for i in picks), 2)}
     return ConsultResponse(profile=profile_result, skincare=skincare,
-                           skincare_status="provisional", makeup=makeup, routine=_routine(skincare),
+                           skincare_status="live", makeup=makeup, routine=_routine(skincare),
                            shopping_list=shopping)
 
 
 @router.get("/products/{product_id}", response_model=ProductDetail)
-def product_detail(product_id: int = Path(..., ge=0)):
+def product_detail(product_id: int = Path(..., ge=0), skin_type: str | None = None):
     products = state["rec"].products
     if product_id not in products.index:
         raise HTTPException(404, "Unknown product")
@@ -349,15 +401,40 @@ def product_detail(product_id: int = Path(..., ge=0)):
     return ProductDetail(product_id=product_id, name=r["Product"], brand=r["Brand"], category=r["Category"],
                          price=float(r["Price"]), source="sephora_reviews",
                          ingredients=[i.strip() for i in r["Ingredients"].split(",") if i.strip()],
-                         review_summary=_review_summary(product_id))
+                         review_summary=_review_summary(product_id, skin_type))
 
 
 @router.get("/products/{product_id}/reviews/summary", response_model=ReviewSummary)
-def review_summary(product_id: int = Path(..., ge=0)):
-    """Phase 4 fills sentiment, themes and quotes. The shape is final."""
+def review_summary(product_id: int = Path(..., ge=0), skin_type: str | None = None):
+    """Themes (praised / criticised / typical), pros and cons, and representative quotes from the reviews."""
     if product_id not in state["rec"].products.index:
         raise HTTPException(404, "Unknown product")
-    return _review_summary(product_id)
+    _check_inputs(skin_type, [])
+    return _review_summary(product_id, skin_type)
+
+
+class ProductScore(BaseModel):
+    product_id: int
+    aicosmetic_score: int = Field(..., ge=0, le=100)
+    verdict: Literal["Recommended", "Okay", "Caution"]
+    breakdown: ScoreBreakdown
+    how_it_works: str
+
+
+@router.get("/products/{product_id}/score", response_model=ProductScore)
+def product_score(product_id: int = Path(..., ge=0), skin_type: str | None = None,
+                  concerns: Annotated[list[str] | None, Query()] = None, skin_tone: str | None = None):
+    """The AICosmetic score for any product, personalised by skin type (and optionally concerns)."""
+    if product_id not in state["rec"].products.index:
+        raise HTTPException(404, "Unknown product")
+    concerns = concerns or []
+    _check_inputs(skin_type, concerns, tone=skin_tone)
+    p_like = float(state["rec"].predict_like(skin_type, skin_tone)[product_id])
+    score, verdict, breakdown = _score(product_id, p_like, skin_type, concerns)
+    return ProductScore(product_id=product_id, aicosmetic_score=score, verdict=verdict, breakdown=breakdown,
+                        how_it_works="Weighted blend of the model's calibrated probability, the smoothed share of "
+                                     "positive reviews and (with concerns) ingredient fit, minus a penalty for "
+                                     "ingredients often reported as aggravating. Formula: cosmetic_rec/score.py.")
 
 
 @router.get("/catalog/stats")

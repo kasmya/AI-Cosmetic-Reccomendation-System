@@ -14,6 +14,7 @@ from sklearn.model_selection import GroupKFold
 
 from .data import load_reviews
 from .recommender import Recommender
+from .reviews_nlp import ReviewIntel
 
 log = logging.getLogger("cosmetic_rec.train")
 ARTIFACT = Path(__file__).resolve().parent.parent / "models" / "skincare_model.joblib"
@@ -40,22 +41,34 @@ def train(path: Path = ARTIFACT) -> dict:
     reviews = load_reviews()
     auc, std = cv_auc(reviews)
     model = Recommender(seed=SEED).fit(reviews)
+    intel = ReviewIntel(seed=SEED).fit(reviews)
+    from .evaluate import sentiment_cv
+    sent = sentiment_cv(reviews, SEED)
     meta = {"model": "HistGradientBoosting + TF-IDF/SVD ingredient embeddings",
             "trained_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "n_reviews": len(reviews), "n_products": len(model.products),
-            "cv_auc": round(auc, 3), "cv_auc_std": round(std, 3), "sklearn": sklearn.__version__}
+            "cv_auc": round(auc, 3), "cv_auc_std": round(std, 3),
+            "sentiment_model": "TF-IDF (1-2 grams) + logistic regression",
+            "sentiment_auc": round(sent["AUC"], 3), "sentiment_accuracy": round(sent["accuracy"], 3),
+            "sklearn": sklearn.__version__}
     path.parent.mkdir(exist_ok=True)
-    joblib.dump({"model": model, "meta": meta}, path)
+    joblib.dump({"model": model, "intel": intel, "meta": meta}, path)
     log.info("trained in %.1fs, saved %s", time.time() - t0, path)
     return meta
 
 
-def load(path: Path = ARTIFACT) -> tuple[Recommender, dict]:
-    """Load the saved artifact, or train one if it is missing."""
-    if not path.exists():
-        log.info("no artifact at %s, training", path)
+def load_all(path: Path = ARTIFACT) -> dict:
+    """Load the saved artifact (model, review intelligence, metadata), or train one if it is missing or outdated."""
+    blob = joblib.load(path) if path.exists() else None
+    if blob is None or "intel" not in blob:
+        log.info("no usable artifact at %s, training", path)
         train(path)
-    blob = joblib.load(path)
+        blob = joblib.load(path)
+    return blob
+
+
+def load(path: Path = ARTIFACT) -> tuple[Recommender, dict]:
+    blob = load_all(path)
     return blob["model"], blob["meta"]
 
 

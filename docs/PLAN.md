@@ -41,7 +41,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - Done when: `/skin/assess` returns concerns with reasons and ingredient guidance, unit-tested on hand-made cases.
 - Risk: photo hints are noisy. Mitigation: show confidence, let the user override.
 
-## Phase 4: Review intelligence and AICosmetic score
+## Phase 4: Review intelligence and AICosmetic score (DONE)
 - Sentiment classifier (TF-IDF + logistic regression) on review text, with held-out accuracy reported.
 - Theme extraction per product (keyword and n-gram scoring) plus representative quotes.
 - AICosmetic score 0-100 = weighted blend of: personalised P(like) (ML model), sentiment of reviews from similar skin types, ingredient flags (user's avoid list, concern fit), review volume confidence. Weights published in the README and returned in the response.
@@ -87,3 +87,11 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - **Photo hints (OpenCV)** in `/face/analyze` (`hints`): redness (share of cheek pixels redder than the person's own median), shine (small specular highlights relative to surrounding skin) and blemishes (small spots redder than surroundings). Labelled low confidence. A photo alone can never push a concern past "possible".
 - **Checked on synthetic patches only:** clean skin scores low on all three; patches with added spots, red areas or highlights score high. There is no labelled face dataset behind these thresholds, so treat the hints as a weak nudge. Two issues found and fixed on the way: the skin mask excluded very red pixels (hiding the redness it measures), and an "absolute brightness" shine test fired on a brightly lit photo.
 - Contract changes are additive (new optional fields and endpoints). 57 tests.
+
+## Phase 4 results
+- **Sentiment model** (`reviews_nlp.py`): TF-IDF (1-2 grams) + logistic regression, "is this a 4-5 star review?". Held-out (users never shared between train and test, 7,498 de-duplicated reviews): ROC-AUC 0.956, accuracy 87.5% vs 74.7% for always guessing positive, F1 on negative reviews 0.69. Note this is a sentiment task (the text and the rating come from the same person), not a recommendation task.
+- **Review summaries** (`GET /api/v1/products/{id}/reviews/summary`): counts, positive share overall and for the user's skin type, aspect themes (hydration, breakouts, irritation, scent, texture, results, gentleness, value, packaging) judged relative to how all products score on that aspect (praised / criticised / typical), pros and cons, and representative quotes. About 18% of product-aspect pairs come out praised, 17% criticised, 65% typical. Aspect polarity applies a review-level model to single sentences, so it is an estimate, not ground truth.
+- **Calibration:** the classifier is Platt-scaled with user-grouped folds. Expected calibration error 0.026 to 0.021; the top predicted probability fell from 0.96 to 0.88. The earlier "96% chance" values were mostly a winner's-curse effect (picking the highest of many noisy estimates).
+- **AICosmetic score** (`score.py`, formula in the module docstring and in `/products/{id}/score`): 0-100 from the calibrated model probability, the smoothed positive-review share (skin-matched when at least 3 reviewers share the skin type) and, with concerns, ingredient fit, minus a penalty for aggravating ingredients. Verdict bands Recommended 80+, Okay 70+, otherwise Caution, which split this catalog into roughly the top 20%, middle 60% and bottom 20%. Every response carries the points each component contributed and a confidence level from the review count.
+- **Does the score predict held-out reviews?** ROC-AUC 0.599, essentially equal to its parts (model 0.600, reviews 0.595) and to the site rating (0.591). Predicting one person's rating from the product alone looks capped near 0.6 in this data. The score's value is that it is calibrated, personalised and explainable, not that it is more predictive. Skin-matched review shares did not beat overall shares (0.592 vs 0.595, within noise).
+- Training now also fits and saves the review model (about 11 s). 73 tests.

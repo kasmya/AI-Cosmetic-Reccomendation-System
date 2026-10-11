@@ -14,7 +14,7 @@ from .data import SKIN_TYPES
 from .makeup import ShadeMatcher
 from .recommender import UserProfile
 from .state import state
-from .train import load
+from .train import load_all
 from .v1 import router as v1_router
 from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_hex_to_lab
 from .websearch import WebSearch, load_dotenv
@@ -26,7 +26,8 @@ MAX_IMAGE_BYTES = 5_000_000
 
 @asynccontextmanager
 async def lifespan(app):
-    state["rec"], state["meta"] = load()
+    blob = load_all()
+    state["rec"], state["intel"], state["meta"] = blob["model"], blob["intel"], blob["meta"]
     state["shades"] = ShadeMatcher()
     state["catalog"] = CatalogIndex(build_catalog())
     load_dotenv()

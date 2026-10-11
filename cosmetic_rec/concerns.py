@@ -185,3 +185,14 @@ def helpful_hits(concern: str, ingredients: str) -> list[str]:
 def watch_hits(concern: str, ingredients: str) -> list[str]:
     text = ingredients.lower()
     return [name for name, subs in WATCH.get(concern, []) if any(sub in text for sub in subs)]
+
+
+def concern_fit(concerns: list[str], ingredients: str) -> float | None:
+    """Mean over the user's concerns of how well the ingredient list addresses each (0-1). None without concerns."""
+    if not concerns:
+        return None
+    return sum(min(len(helpful_hits(c, ingredients)), 2) / 2 for c in concerns) / len(concerns)
+
+
+def watch_flags(concerns: list[str], ingredients: str) -> list[str]:
+    return sorted({f for c in concerns for f in watch_hits(c, ingredients)})
