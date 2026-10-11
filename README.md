@@ -1,12 +1,13 @@
 # AI Cosmetic Recommendation System
 
-Skincare recommendations from 8,649 real reviews of 315 products. Python + scikit-learn backend, plain HTML/CSS/JS frontend.
+Skincare recommendations from 8,649 real reviews of 315 products. Python (scikit-learn, OpenCV, FastAPI) backend, plain HTML/CSS/JS frontend.
 
 ## How it works
 1. **Filters:** category, max price, sensitive skin, ingredients to avoid.
 2. **Gradient boosting classifier** predicts the probability that a user with a given skin type rates a product 4+ stars (features: skin type, category, brand, price, site rating, suitability labels, ingredient embedding).
 3. **Ingredient embeddings:** TF-IDF followed by truncated SVD (LSA). Cosine similarity finds products similar to ones the user already liked.
 4. Final score is a blend of (2) and (3). Each result shows its reason.
+5. **Optional photo analysis (OpenCV):** upload a selfie; a Haar cascade finds the face, skin-coloured pixels in the cheek/forehead region are converted to CIELAB, and the Individual Typology Angle maps to one of the dataset's 9 tone labels (Porcelain to Ebony). The photo is processed in memory and never stored. The tone is passed to the classifier as a feature.
 
 ## Run
 ```bash
@@ -23,9 +24,9 @@ Docker: `docker build -t cosmetic-rec . && docker run -p 8000:8000 cosmetic-rec`
 | Model | AUC |
 |---|---|
 | Baseline: site rating | 0.591 |
-| Logistic regression | 0.592 |
-| Neural net (MLP) | 0.578 |
-| **Gradient boosting (used)** | **0.598** |
+| Logistic regression | 0.591 |
+| Neural net (MLP) | 0.554 |
+| **Gradient boosting (used)** | **0.599** |
 
 **B. Find the hidden product.** One liked product per user is hidden (417 users, ~315 candidates), mean of 5 seeds:
 
@@ -34,16 +35,18 @@ Docker: `docker build -t cosmetic-rec . && docker run -p 8000:8000 cosmetic-rec`
 | Random | 3.2% |
 | ML P(like) only | 3.5% |
 | Ingredient similarity only | 8.3% |
-| **Hybrid (used)** | **8.7%** |
+| **Hybrid (used)** | **8.6%** |
 
-**Honest reading:** the dataset is small and most users wrote one review, so predicting satisfaction is hard (AUC ~0.6, barely above using the site rating; a neural net did not help). Ingredient similarity is the component that clearly beats chance (about 2.7x random). Skin-type signal is weak.
+**Honest reading:** the dataset is small and most users wrote one review, so predicting satisfaction is hard (AUC ~0.6, barely above using the site rating; a neural net did not help). Ingredient similarity is the component that clearly beats chance (about 2.7x random). Skin-type signal is weak, and skin tone added no measurable accuracy (AUC 0.598 -> 0.599, noise), so the photo feature is a convenience, not an accuracy gain.
+
+**Photo analysis limits:** tone is estimated from pixel brightness and colour, so lighting matters; heavy over- or under-exposure shifts the result by 1-2 bands. Best with a front-facing, evenly lit photo. It has been checked on one portrait plus synthetic lighting changes, not on a labelled, diverse test set, so it is a suggestion the user can ignore.
 
 ## Why a rewrite
 The original notebook reported 100% accuracy because its label `Good_Stuff` is exactly `Rating_Stars == 5` and `Rating_Stars` was a model input, which is target leakage. The same dataset also contains repeat user/product reviews that can leak a held-out item into training; the evaluation here removes them.
 
 ## Layout
 ```
-cosmetic_rec/   data.py  recommender.py  evaluate.py  api.py
+cosmetic_rec/   data.py  recommender.py  vision.py (OpenCV)  evaluate.py  api.py
 static/         index.html (HTML/CSS/JS)
 tests/          pytest suite
 skindataall.csv dataset

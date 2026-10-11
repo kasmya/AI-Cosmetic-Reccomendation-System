@@ -20,7 +20,7 @@ button{border:1px solid var(--fg);padding:10px;cursor:pointer;margin-top:8px}
 button:hover{background:var(--fg);color:var(--bg)}
 #out{margin-top:32px}
 .item{padding:16px 0;border-top:1px solid var(--line)}
-.item b{font-weight:600}.meta{color:var(--mut);font-size:13px}.why{font-size:13px;margin-top:4px;color:var(--mut)}
+.item b{font-weight:600}.meta{color:var(--mut);font-size:13px}#photo{border:0}.why{font-size:13px;margin-top:4px;color:var(--mut)}
 @media(max-width:480px){.row{grid-template-columns:1fr}}
 </style></head><body><main>
 <h1>Cosmetic Recommender</h1>
@@ -36,18 +36,26 @@ button:hover{background:var(--fg);color:var(--bg)}
 </div>
 <label>A product you liked (optional)<input id="liked" list="products" placeholder="start typing a product name"></label>
 <datalist id="products"></datalist>
+<label>Skin tone from a photo (optional, processed in memory, never stored)<input id="photo" type="file" accept="image/*"></label>
+<div id="tone" class="meta" aria-live="polite"></div>
 <label class="check"><input id="sens" type="checkbox"> Sensitive skin</label>
 <button>Recommend</button>
 </form>
 <div id="out" aria-live="polite"></div>
 <script>
-const $=id=>document.getElementById(id),ids={};
+const $=id=>document.getElementById(id),ids={};let tone=null;
 fetch('/products?limit=400').then(r=>r.json()).then(ps=>ps.forEach(p=>{
   const label=`${p.Product} (${p.Brand})`;ids[label]=p.Product_id;
   const o=document.createElement('option');o.value=label;$('products').append(o)}));
+$('photo').onchange=async()=>{const f=$('photo').files[0];tone=null;$('tone').textContent='';if(!f)return;
+  $('tone').textContent='Analysing…';
+  try{const r=await fetch('/analyze-photo',{method:'POST',body:f});const j=await r.json();
+    if(!r.ok)throw new Error(j.detail||r.status);tone=j.tone;
+    $('tone').textContent=`Estimated tone: ${j.tone} (approximate, depends on lighting)`}
+  catch(e){$('tone').textContent=e.message}};
 $('f').onsubmit=async e=>{e.preventDefault();const out=$('out');
   const liked=ids[$('liked').value];
-  const body={skin_type:$('skin').value||null,category:$('cat').value||null,
+  const body={skin_type:$('skin').value||null,skin_tone:tone,category:$('cat').value||null,
     max_price:$('price').value?+$('price').value:null,sensitive:$('sens').checked,
     avoid_ingredients:$('avoid').value.split(',').map(s=>s.trim()).filter(Boolean),
     liked_product_ids:liked?[liked]:[],k:8};

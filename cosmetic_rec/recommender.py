@@ -17,6 +17,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from .data import LABELS, SKIN_TYPES, build_products
+from .vision import tone_index
 
 DEFAULT_WEIGHTS = {"model": 1.0, "taste": 1.0}
 
@@ -24,6 +25,7 @@ DEFAULT_WEIGHTS = {"model": 1.0, "taste": 1.0}
 @dataclass
 class UserProfile:
     skin_type: str | None = None
+    skin_tone: str | None = None          # e.g. from the photo analyser
     sensitive: bool = False
     category: str | None = None
     max_price: float | None = None
@@ -59,10 +61,11 @@ class Recommender:
         u["skin_unknown"] = (~skin_types.isin(SKIN_TYPES)).astype(int)
         return u
 
-    def _design(self, skin_types: pd.Series, product_ids) -> pd.DataFrame:
+    def _design(self, skin_types: pd.Series, product_ids, tones: pd.Series | None = None) -> pd.DataFrame:
         pf = self.pfeat.loc[product_ids].reset_index(drop=True)
         uf = self._user_features(skin_types.reset_index(drop=True))
         X = pd.concat([uf, pf], axis=1)
+        X["skin_tone"] = float("nan") if tones is None else tones.map(tone_index).to_numpy()
         X["skin_match"] = sum(X[f"skin_{t}"] * X[f"label_{t}"] for t in SKIN_TYPES)
         return X.reindex(columns=self.columns, fill_value=0) if hasattr(self, "columns") else X
 
@@ -80,7 +83,7 @@ class Recommender:
         self.pfeat = self._product_features(self.products)
         self._pos = {pid: i for i, pid in enumerate(self.products.index)}
 
-        X = self._design(reviews["Skin_Type"], reviews["Product_id"].to_numpy())
+        X = self._design(reviews["Skin_Type"], reviews["Product_id"].to_numpy(), reviews["Skin_Tone"])
         self.columns = list(X.columns)
         y = (reviews["Rating_Stars"] >= 4).astype(int).to_numpy()
         self.clf = HistGradientBoostingClassifier(
@@ -88,9 +91,9 @@ class Recommender:
         return self
 
     # ---------- inference ----------
-    def predict_like(self, skin_type: str | None) -> pd.Series:
+    def predict_like(self, skin_type: str | None, skin_tone: str | None = None) -> pd.Series:
         ids = self.products.index.to_numpy()
-        X = self._design(pd.Series([skin_type] * len(ids)), ids)
+        X = self._design(pd.Series([skin_type] * len(ids)), ids, pd.Series([skin_tone] * len(ids)))
         return pd.Series(self.clf.predict_proba(X)[:, 1], index=ids)
 
     def recommend(self, profile: UserProfile, k: int = 10, explain: bool = True) -> pd.DataFrame:
@@ -107,7 +110,7 @@ class Recommender:
         if profile.sensitive:
             mask &= (p["Sensitive"] == 1).to_numpy()
 
-        p_like = self.predict_like(profile.skin_type)
+        p_like = self.predict_like(profile.skin_type, profile.skin_tone)
         score = w["model"] * _z(p_like)
         sim = np.zeros(len(p))
         liked = [self._pos[i] for i in profile.liked_product_ids if i in self._pos]

@@ -8,6 +8,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import GroupKFold
@@ -25,12 +26,12 @@ def classifier_cv(reviews, seed=0):
     y = (reviews["Rating_Stars"] >= 4).astype(int).to_numpy()
     groups = reviews["User_id"].to_numpy()
     base = Recommender(seed=seed).fit(reviews)
-    X = base._design(reviews["Skin_Type"], reviews["Product_id"].to_numpy())
+    X = base._design(reviews["Skin_Type"], reviews["Product_id"].to_numpy(), reviews["Skin_Tone"])
     site = base.pfeat.loc[reviews["Product_id"], "site_rating"].to_numpy()
     models = {
         "baseline: site rating": None,
-        "logistic regression": make_pipeline(StandardScaler(), LogisticRegression(C=0.1, max_iter=2000)),
-        "neural net (MLP)": make_pipeline(StandardScaler(), MLPClassifier(
+        "logistic regression": make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), LogisticRegression(C=0.1, max_iter=2000)),
+        "neural net (MLP)": make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), MLPClassifier(
             (64, 32), alpha=0.1, early_stopping=True, max_iter=300, random_state=seed)),
         "gradient boosting (used)": base.clf,
     }

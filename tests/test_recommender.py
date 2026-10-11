@@ -55,3 +55,40 @@ def test_api():
         assert r.status_code == 200 and r.json()["count"] == 3
         assert c.post("/recommend", json={"skin_type": "Purple"}).status_code == 422
         assert c.get("/").status_code == 200
+
+
+# ---- OpenCV skin-tone analysis ----
+import cv2
+import numpy as np
+
+from cosmetic_rec.vision import NoFaceError, ita_to_tone, estimate_skin_tone, tone_index
+
+
+def test_ita_mapping_is_monotonic():
+    tones = [ita_to_tone(a) for a in (70, 55, 45, 30, 22, 15, 0, -20, -50)]
+    assert [tone_index(t) for t in tones] == list(range(9))
+
+
+def test_tone_changes_model_input_but_not_validity(rec):
+    base = rec.recommend(UserProfile(skin_type="Dry"), k=5, explain=False)
+    dark = rec.recommend(UserProfile(skin_type="Dry", skin_tone="Deep"), k=5, explain=False)
+    assert dark["p_like"].between(0, 1).all() and len(base) == len(dark) == 5
+
+
+def test_face_photo_and_no_face():
+    data = pytest.importorskip("skimage.data")
+    face = cv2.cvtColor(data.astronaut(), cv2.COLOR_RGB2BGR)
+    out = estimate_skin_tone(face)
+    assert out["tone"] in ("Porcelain", "Fair", "Light") and out["skin_pixels"] > 100
+    with pytest.raises(NoFaceError):
+        estimate_skin_tone(cv2.cvtColor(data.coffee(), cv2.COLOR_RGB2BGR))
+
+
+def test_photo_endpoint():
+    data = pytest.importorskip("skimage.data")
+    ok, png = cv2.imencode(".png", cv2.cvtColor(data.astronaut(), cv2.COLOR_RGB2BGR))
+    with TestClient(app) as c:
+        r = c.post("/analyze-photo", content=png.tobytes())
+        assert r.status_code == 200 and "tone" in r.json()
+        assert c.post("/analyze-photo", content=b"not an image").status_code == 400
+        assert c.post("/recommend", json={"skin_tone": "Purple"}).status_code == 422

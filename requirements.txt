@@ -4,3 +4,4 @@ scikit-learn
 fastapi
 uvicorn
 pydantic
+opencv-python-headless>=4.8,<5
