@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from . import registry
 from .catalog import build_catalog
 from .catalog_index import CatalogIndex
 from .data import SKIN_TYPES
@@ -68,7 +69,10 @@ def health():
 
 @app.get("/model-info")
 def model_info():
-    return state["meta"]
+    """The serving model's metadata plus the registry state (champion, versions, recent decisions)."""
+    recent = [{"at": e["at"], "event": e["event"], "version": e.get("version")} for e in registry.history()[-8:]]
+    return {**state["meta"], "registry": {"champion": registry.champion(), "versions": len(registry.versions()),
+                                          "recent": recent}}
 
 
 @app.get("/", include_in_schema=False)

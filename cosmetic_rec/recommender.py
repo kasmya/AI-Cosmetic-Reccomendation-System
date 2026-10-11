@@ -55,9 +55,12 @@ def _z(x):
 
 
 class Recommender:
-    def __init__(self, weights=None, svd_dim=20, seed=0):
+    DEFAULT_HGB = {"max_depth": 3, "learning_rate": 0.05, "max_iter": 200}
+
+    def __init__(self, weights=None, svd_dim=20, seed=0, hgb_params=None):
         self.weights = {**DEFAULT_WEIGHTS, **(weights or {})}
         self.svd_dim, self.seed = svd_dim, seed
+        self.hgb_params = {**self.DEFAULT_HGB, **(hgb_params or {})}
 
     # ---------- features ----------
     def _product_features(self, products: pd.DataFrame) -> pd.DataFrame:
@@ -104,7 +107,7 @@ class Recommender:
         # Platt-scaled with user-grouped folds, so the probabilities are fitted on users the model did not see.
         folds = list(GroupKFold(5).split(X, y, reviews["User_id"]))
         self.clf = CalibratedClassifierCV(
-            HistGradientBoostingClassifier(max_depth=3, learning_rate=0.05, max_iter=200, random_state=self.seed),
+            HistGradientBoostingClassifier(**getattr(self, "hgb_params", self.DEFAULT_HGB), random_state=self.seed),
             method="sigmoid", cv=folds).fit(X, y)
         return self
 

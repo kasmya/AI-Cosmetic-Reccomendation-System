@@ -5,6 +5,7 @@ __pycache__/
 py_3/
 .venv/
 models/*.joblib
+models/registry/
 .env
 .DS_Store
 var/
