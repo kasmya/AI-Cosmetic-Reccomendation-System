@@ -13,6 +13,9 @@ import httpx
 
 log = logging.getLogger("cosmetic_rec.websearch")
 API_URL = "https://api.tavily.com/search"
+# Company-directory and job sites that match brand names but say nothing about the product.
+EXCLUDE_DOMAINS = ["indeed.com", "linkedin.com", "glassdoor.com", "mapquest.com", "leadiq.com", "rocketreach.co",
+                   "zoominfo.com", "facebook.com", "yelp.com", "dnb.com", "crunchbase.com"]
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
@@ -53,7 +56,8 @@ class WebSearch:
         try:
             with httpx.Client(timeout=10, transport=self._transport) as client:
                 r = client.post(API_URL, headers={"Authorization": f"Bearer {self.api_key}"},
-                                json={"query": query, "max_results": max_results, "search_depth": "basic"})
+                                json={"query": query, "max_results": max_results, "search_depth": "basic",
+                                      "exclude_domains": EXCLUDE_DOMAINS})
                 r.raise_for_status()
         except httpx.HTTPError as e:
             log.warning("tavily request failed: %s", type(e).__name__)

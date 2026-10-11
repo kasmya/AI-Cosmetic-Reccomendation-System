@@ -371,7 +371,7 @@ def product_web(product_id: int = Path(..., ge=0)):
     if product_id not in products.index:
         raise HTTPException(404, "Unknown product")
     r = products.loc[product_id]
-    query = f"{r['Brand']} {r['Product']} review ingredients"
+    query = f"{r['Brand']} {r['Product']} skincare product review"
     web = state["web"]
     if not web.enabled:
         return WebSearchResponse(status="disabled", query=query, note="Set TAVILY_API_KEY to enable live web search.")

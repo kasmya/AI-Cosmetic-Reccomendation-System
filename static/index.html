@@ -1,8 +1,17 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cosmetic Consultation</title>
-<!-- BAREBONES STRUCTURE. Restyle freely: keep the ids and data-endpoint attributes, they are what the script binds to.
-     Endpoint contract: /docs (live OpenAPI) and docs/FRONTEND.md. -->
+<!-- CONSOLIDATED BAREBONES FRONTEND: one self-contained file (CSS + JS inline, no build step).
+     Restyle freely. Keep the element ids: the script binds to them. Live API reference: /docs. Notes: docs/FRONTEND.md.
+
+     Sections and the endpoints they use
+       #step-profile   GET  /api/v1/options                       skin type, concerns, colour preferences, budget
+       #step-photo     POST /api/v1/face/analyze                  raw image bytes -> skin colour + tone
+       #res-*          POST /api/v1/consult                       profile, skincare (+alternatives), makeup, routine, shopping
+       #res-product    GET  /api/v1/products/{id}                 detail + review summary (planned)
+                       GET  /api/v1/products/{id}/web             live web results (needs TAVILY_API_KEY on the server)
+       #step-browse    GET  /api/v1/catalog/search, /catalog/stats browse every source
+     Each section reports status: live | provisional | planned. -->
 <style>
 body{font:15px/1.5 system-ui,sans-serif;max-width:860px;margin:0 auto;padding:16px;color:#222}
 section{border:1px solid #ddd;margin:16px 0;padding:12px 16px}
@@ -50,16 +59,28 @@ h1,h2,h3{margin:.3em 0}fieldset{border:1px solid #eee;margin:10px 0}label{margin
   <section id="res-product" hidden data-endpoint="GET /api/v1/products/{id}"><h2>Product detail</h2><div class="body"></div></section>
   <p class="meta" id="disclaimer"></p>
 </div>
+
+<!-- ============ BROWSE ALL SOURCES  (GET /api/v1/catalog/search, /catalog/stats) ============ -->
+<section id="step-browse" data-endpoint="GET /api/v1/catalog/search">
+  <h2>Browse the catalog</h2>
+  <div id="catalog-stats" class="meta"></div>
+  <label>Search <input id="cat-q" placeholder="name or brand"></label>
+  <label>Category <select id="cat-category"><option value="">Any</option></select></label>
+  <label>Source <select id="cat-source"><option value="">All</option><option value="sephora_reviews">sephora_reviews</option><option value="open_beauty_facts">open_beauty_facts</option></select></label>
+  <button id="cat-go">Search</button>
+  <div id="cat-results"></div>
+</section>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const badge = st => `<span class="badge ${esc(st)}">${esc(st)}</span>`;
+const API_BASE = window.API_BASE || '';   // set window.API_BASE = 'http://localhost:8000' to open this file standalone
 let face = null;   // result of /face/analyze, passed into /consult
 
 async function api(url, opts) {
-  const r = await fetch(url, opts);
+  const r = await fetch(API_BASE + url, opts);
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : `Request failed (${r.status})`);
   return j;
@@ -129,6 +150,23 @@ function render(j) {
   $('res-shopping').querySelector('.body').innerHTML = `<p>${j.shopping_list.items.length} products, total <b>$${esc(j.shopping_list.total_price)}</b> ${badge(j.shopping_list.status)}</p>`;
   $('disclaimer').textContent = j.disclaimer;
 }
+
+/* ---- browse the catalog ---- */
+api('/api/v1/catalog/stats').then(st => {
+  $('catalog-stats').textContent = `${st.total} products: ` + st.sources.map(x => `${x.products} from ${x.source} (${x.licence})`).join('; ');
+  Object.keys(st.categories).sort().forEach(c => $('cat-category').add(new Option(c, c)));
+}).catch(() => {});
+$('cat-go').onclick = async () => {
+  const q = new URLSearchParams({q: $('cat-q').value, limit: 20});
+  if ($('cat-category').value) q.set('category', $('cat-category').value);
+  if ($('cat-source').value) q.set('source', $('cat-source').value);
+  try {
+    const rows = await api('/api/v1/catalog/search?' + q);
+    $('cat-results').innerHTML = rows.length ? rows.map(p => `<div class="card"><b>${esc(p.name)}</b>
+      <span class="meta">${esc(p.brand || 'unknown brand')} · ${esc(p.category)} · ${p.price == null ? 'price n/a' : '$' + esc(p.price)} · ${esc(p.source)} · ${esc(p.n_ingredients)} ingredients</span>
+      ${p.url ? `<div class="meta"><a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">source page</a></div>` : ''}</div>`).join('') : '<p class="meta">No matches.</p>';
+  } catch (e) { $('cat-results').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+};
 
 /* ---- web results (GET /api/v1/products/{id}/web, needs TAVILY_API_KEY on the server) ---- */
 async function loadWeb(pid) {
