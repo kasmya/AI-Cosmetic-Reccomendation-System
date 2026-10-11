@@ -148,9 +148,12 @@ def retrieval(reviews, seed=0, k=10):
                 "hybrid (used)": dict()}
     for name, wts in variants.items():
         rec = Recommender(weights=wts, seed=seed).fit(train, products)
-        ranks = [rec.recommend(UserProfile(skin_type=skin.get(u), liked_product_ids=liked.get(u, []),
-                                           exclude_product_ids=seen[u]), k=len(products), explain=False)
-                 .index.to_numpy() for u in users]
+        def rank(u, rec=rec):
+            profile = UserProfile(skin_type=skin.get(u), liked_product_ids=liked.get(u, []),
+                                  exclude_product_ids=seen[u], include_makeup=True)
+            return rec.recommend(profile, k=len(products), explain=False).index.to_numpy()
+
+        ranks = [rank(u) for u in users]
         results[name] = _metrics(ranks, targets, k)
     return pd.DataFrame(results).T, len(users)
 

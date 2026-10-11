@@ -39,7 +39,7 @@ class CatalogIndex:
         return self.df[m].head(limit)
 
     def similar(self, product_uid: str, k: int = 3, same_category: bool = True,
-                other_source: bool = True) -> pd.DataFrame:
+                other_source: bool = True, source: str | None = None) -> pd.DataFrame:
         """Products with the most similar ingredient lists (cosine). Empty if the product has no ingredients."""
         i = self._row.get(product_uid)
         if i is None or not self.df.at[i, "has_ingredients"]:
@@ -51,6 +51,8 @@ class CatalogIndex:
             ok &= (self.df["category"] == self.df.at[i, "category"]).to_numpy()
         if other_source:
             ok &= (self.df["source"] != self.df.at[i, "source"]).to_numpy()
+        if source:
+            ok &= (self.df["source"] == source).to_numpy()
         idx = np.where(ok)[0]
         top = idx[np.argsort(-sims[idx])[:k]]
         return self.df.iloc[top].assign(similarity=sims[top].round(3))

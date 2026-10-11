@@ -79,6 +79,9 @@ flowchart LR
 
 **Limits:** it reads colour from pixels, so lighting and camera white balance matter; a swatch colour on a screen is not the same as foundation on skin. Checked on one portrait plus synthetic brightness changes, not a labelled, diverse test set. Treat results as a shortlist. Photos are processed in memory and never stored.
 
+## Routine, budget and shopping list
+`/consult` builds a morning routine (cleanse, treat, moisturise, SPF) and an evening routine. Retinoids, exfoliating acids and benzoyl peroxide are kept out of the morning treatment, ingredient clashes are flagged with hedged wording, a total budget is met if any combination can (otherwise it says how far over the cheapest one is), sensitive skin gets a mineral sunscreen, and cheaper look-alike products are suggested when a genuinely similar one exists (rare in this catalog, and it says so). Sunscreens come from Open Beauty Facts, so they are unscored and unpriced. Rules are routine conventions, not clinical advice.
+
 ## Makeup look and virtual try-on
 Foundation is matched to real shades (k-NN in Lab). Lips, blush and eye colours come from colour-theory rules: depth and undertone are read from your photo (undertone judged against shades of similar depth, because lighter skin is naturally more yellow), your colour preferences re-rank the palette, and every shade carries its reason. A try-on recolours foundation, lips and cheeks on your photo with OpenCV (Lab colour space, so shading survives). Colour suggestions are rules with no ground truth, product matches use colour words in product names (small coverage), and the try-on has no facial-landmark model, so it needs a front-facing photo.
 

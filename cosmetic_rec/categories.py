@@ -39,3 +39,15 @@ def map_category(text: str | None) -> str | None:
                 return None
             return category
     return None
+
+
+# The Sephora skincare data files some makeup under skincare categories (a concealer listed as a "Treatment").
+# Deliberately narrow: "complexion" and plain "corrector" are not matched because real skincare uses those words.
+_MAKEUP_NAME = re.compile(
+    r"concealer|under-?eye corrector|colou?r corrector|foundation|\bbb\b|\bcc\b|tinted|beauty balm|highlighter|"
+    r"bronz|blush|lipstick|lip gloss|lip tint|mascara|eyeliner|\bbrow\b|eyeshadow|primer|full[- ]coverage|"
+    r"skin tint", re.I)
+
+
+def looks_like_makeup(name: str | None) -> bool:
+    return bool(_MAKEUP_NAME.search(name or ""))

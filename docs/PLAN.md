@@ -55,7 +55,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - Virtual try-on: blend the chosen shade on the photo (OpenCV masking).
 - Done when: user preferences visibly change the palette and results, with tests on the rules.
 
-## Phase 6: Complete list and routine
+## Phase 6: Complete list and routine (DONE)
 - AM/PM routine builder (cleanser, treatment, moisturizer, SPF) within budget, with ingredient clash warnings (for example retinol with exfoliating acids).
 - Shopping list: total price, swaps for cheaper similar products (dupe finder using ingredient similarity).
 - Done when: `/consult` returns a routine and shopping list that respects budget and avoid-lists.
@@ -103,3 +103,12 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - **Virtual try-on** (`tryon.py`, `POST /api/v1/makeup/tryon`): foundation, lips and blush recoloured in Lab so shading and texture survive. Only changed pixels are rewritten. Lips are found as the reddish blob in the mouth area, cheeks are fixed ellipses (no facial-landmark model), so it needs a front-facing photo and reports what it applied in `X-Applied`. Foundation changes the face only, not the neck. No eyeshadow (needs eyelid landmarks).
 - **Live shopping search** (`GET /api/v1/makeup/web`): Tavily results for a suggested shade, same optional key as before.
 - 92 tests.
+
+## Phase 6 results
+- **Routine** (`planner.py`, `routine.py`): AM = cleanse, treat, moisturise, protect (SPF); PM = cleanse, treat, moisturise. The morning treatment is chosen only from products without a retinoid, exfoliating acid (AHA/BHA) or benzoyl peroxide; those stay for night, with a "start 2-3 nights a week" note. An ingredient only counts as an active when it sits near the top of the list (a late mention is a pH adjuster).
+- **Clash warnings** (rule table, hedged wording, evidence on many combinations is mixed): retinoid with AHA/BHA/benzoyl peroxide (caution), AHA with BHA, vitamin C with acids or benzoyl peroxide (info), retinoid in the morning (caution). Clashes that involve a rinse-off cleanser are downgraded to info. `POST /api/v1/routine/check` checks a routine you already use.
+- **Budget** (`total_budget` in `/consult`): a search over the Pareto frontier (best score for the price) of the top 30 candidates per category, counting each distinct product once. If no combination fits, it returns the cheapest one and says by how much it is over. Found while testing: choosing only among the top 5 by score could never meet a $90 or $20 budget; widening to 30 and pruning to the Pareto frontier fixed it (a $90 budget is now met at $86).
+- **Sunscreen:** from the Open Beauty Facts pool (464 products). The Sephora SPF items are tinted moisturisers and BB creams, not real sunscreens. SPF is parsed from names (SPF / FPS / LSF), SPF below 15 and children's products are skipped, mineral-only filters are required for sensitive skin, and your avoid list and concern watch-list apply. These picks are unscored and have no price (stated in the note and left out of the total).
+- **Shopping list:** each distinct product once with the steps that use it, total of priced items, and cheaper swaps (`/products/{id}/dupes`, also in `/consult`): a swap must save at least $3, have ingredient similarity of at least 0.35 and a score within 5 points of the original. Swaps are rare by design: the median Sephora product's closest same-source match has similarity 0.22, and only 66 of 4,095 candidate pairs reach 0.35, so most routines show none (and say so).
+- **Makeup kept out of skincare:** the Sephora data files some makeup under "Treatment" and "Moisturizer" (a concealer, BB creams, primers, bronzing drops). 10 products are now flagged by name and skipped by default; this also fixes the "Treat" step picking a concealer.
+- 124 tests.

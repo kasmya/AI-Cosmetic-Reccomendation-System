@@ -18,6 +18,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import GroupKFold
 
+from .categories import looks_like_makeup
 from .concerns import helpful_hits, watch_hits
 from .data import LABELS, SKIN_TYPES, build_products
 from .vision import tone_index
@@ -45,6 +46,7 @@ class UserProfile:
     avoid_ingredients: list[str] = field(default_factory=list)
     liked_product_ids: list[int] = field(default_factory=list)
     exclude_product_ids: list[int] = field(default_factory=list)
+    include_makeup: bool = False          # products whose name says concealer / tinted / BB cream etc. are skipped
 
 
 def _z(x):
@@ -85,6 +87,7 @@ class Recommender:
     # ---------- training ----------
     def fit(self, reviews: pd.DataFrame, products: pd.DataFrame | None = None):
         self.products = (products if products is not None else build_products(reviews)).copy()
+        self.products["is_makeup"] = self.products["Product"].map(looks_like_makeup)
         self.vectorizer = TfidfVectorizer(
             tokenizer=split_ingredients, token_pattern=None, lowercase=False)
         tfidf = self.vectorizer.fit_transform(self.products["Ingredients"])
@@ -125,6 +128,8 @@ class Recommender:
             mask &= ~p.index.isin(profile.exclude_product_ids)
         if profile.sensitive:
             mask &= (p["Sensitive"] == 1).to_numpy()
+        if not profile.include_makeup and "is_makeup" in p:      # artifacts saved earlier lack the column
+            mask &= ~p["is_makeup"].to_numpy()
 
         p_like = self.predict_like(profile.skin_type, profile.skin_tone)
         score = w["model"] * _z(p_like)

@@ -35,7 +35,9 @@ def test_consult_full_shape_without_photo(client):
     item = j["skincare"]["Cleanser"][0]
     assert 0 <= item["aicosmetic_score"] <= 100 and item["verdict"] in ("Recommended", "Okay", "Caution")
     assert j["makeup"]["foundation"]["status"] == "planned" and j["makeup"]["lips"]["status"] == "planned"
-    assert len(j["routine"]["am"]) == 3 and "medical" in j["disclaimer"].lower()
+    assert [x["step"] for x in j["routine"]["am"]] == ["Cleanse", "Treat", "Moisturise", "Protect"]
+    assert [x["step"] for x in j["routine"]["pm"]] == ["Cleanse", "Treat", "Moisturise"]
+    assert "medical" in j["disclaimer"].lower()
 
 
 def test_consult_respects_budget_and_avoid_list(client):

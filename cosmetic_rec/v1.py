@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 
 from . import concerns as cx
 from . import makeup_look as ml
+from . import planner
+from . import routine as rt
 from .concerns import CONCERNS
 from .data import SKIN_TYPES
 from .recommender import UserProfile
@@ -95,6 +97,7 @@ class ConsultRequest(BaseModel):
     undertone: str | None = Field(None, description="warm / neutral / cool; overrides the measured undertone")
     sensitive: bool = False
     max_price_per_item: float | None = Field(None, ge=0)
+    total_budget: float | None = Field(None, ge=0, description="Cap on the routine's total (priced products)")
     avoid_ingredients: list[str] = []
     skin_hex: str | None = Field(None, pattern=r"^#?[0-9a-fA-F]{6}$", description="From /face/analyze")
     skin_tone: str | None = Field(None, description=f"One of {TONES}")
@@ -189,13 +192,28 @@ class RoutineStep(BaseModel):
     step: str
     product_id: int | None
     name: str | None
+    category: str | None = None
+    product_uid: str | None = None
+    price: float | None = None               # None when the source has no price (e.g. Open Beauty Facts)
+    source: str | None = None
+    spf: int | None = None
+    note: str = ""
+
+
+class Clash(BaseModel):
+    severity: Literal["info", "caution"]
+    slot: Literal["am", "pm"]
+    products: list[str]
+    message: str
 
 
 class Routine(BaseModel):
     status: Status
     am: list[RoutineStep]
     pm: list[RoutineStep]
-    warnings: list[str] = []
+    warnings: list[str] = []                 # the caution-level clash messages, as plain strings
+    clashes: list[Clash] = []
+    notes: list[str] = []
 
 
 class ConsultResponse(BaseModel):
@@ -415,19 +433,35 @@ def _makeup(req) -> MakeupLook:
                       tone=req.skin_tone, foundation=_foundation(req.skin_hex), **sections)
 
 
-def _routine(skincare: dict[str, list[SkincareItem]]) -> Routine:
-    def step(label: str, category: str) -> RoutineStep:
-        top = skincare[category][0] if skincare.get(category) else None
-        return RoutineStep(step=label, product_id=top.product_id if top else None, name=top.name if top else None)
+def _candidate(r, skin_type, concerns: list[str]) -> dict:
+    """Lightweight scored candidate for the planner (no alternatives lookup)."""
+    score, verdict, _ = _score(int(r.Product_id), float(r.p_like), skin_type, concerns)
+    return {"product_id": int(r.Product_id), "name": r.Product, "brand": r.Brand, "category": r.Category,
+            "price": float(r.Price), "score": score, "verdict": verdict, "source": "sephora_reviews"}
 
-    steps = [step("Cleanse", "Cleanser"), step("Treat", "Treatment"), step("Moisturise", "Moisturizer")]
-    return Routine(status="provisional", am=steps, pm=steps,
-                   warnings=["SPF step and ingredient-clash checks arrive in Phase 6."])
+
+def _plan(req, plain: dict[str, list[dict]], skin_type, concerns: list[str]):
+    """Routine and shopping list for the consultation (logic lives in planner.py)."""
+    rec = state["rec"]
+    p_like = rec.predict_like(skin_type, req.skin_tone)
+
+    def scorer(pid: int):
+        score, verdict, _ = _score(pid, float(p_like[pid]), skin_type, concerns)
+        return score, verdict
+
+    inp = planner.PlanInput(skin_type=skin_type, concerns=concerns, sensitive=req.sensitive,
+                            avoid=req.avoid_ingredients, budget=req.total_budget, max_price=req.max_price_per_item)
+    out = planner.plan(inp, plain, rec, state["catalog"], scorer)
+    clashes = [Clash(**c) for c in out["clashes"]]
+    routine = Routine(status="live", am=[RoutineStep(**x) for x in out["am"]], pm=[RoutineStep(**x) for x in out["pm"]],
+                      warnings=[c.message for c in clashes if c.severity == "caution"], clashes=clashes,
+                      notes=out["notes"])
+    return routine, out["shopping"]
 
 
 @router.post("/consult", response_model=ConsultResponse)
 def consult(req: ConsultRequest):
-    """One call that returns the whole consultation. Sections not built yet say status='planned'."""
+    """One call that returns the whole consultation: profile, skincare, makeup, routine and shopping list."""
     _check_inputs(req.skin_type, req.concerns, req.colour_preferences, req.skin_tone, req.undertone)
     rec = state["rec"]
     profile_result = _assess(req.skin_type, req.concerns, req.answers, req.photo_hints)
@@ -435,21 +469,18 @@ def consult(req: ConsultRequest):
     active_concerns = [c.concern for c in profile_result.concerns]
 
     skincare: dict[str, list[SkincareItem]] = {}
+    plain: dict[str, list[dict]] = {}
     for category in ("Cleanser", "Treatment", "Moisturizer"):
         profile = UserProfile(skin_type=skin_type, skin_tone=req.skin_tone, sensitive=req.sensitive,
-                              concerns=active_concerns,
-                              category=category, max_price=req.max_price_per_item,
+                              concerns=active_concerns, category=category, max_price=req.max_price_per_item,
                               avoid_ingredients=req.avoid_ingredients)
-        out = rec.recommend(profile, k=req.per_category).reset_index()
-        skincare[category] = [_skincare_item(r, skin_type, active_concerns) for r in out.itertuples()]
-
-    makeup = _makeup(req)
-    picks = [items[0] for items in skincare.values() if items]
-    shopping = {"status": "provisional", "items": [i.product_id for i in picks],
-                "total_price": round(sum(i.price for i in picks), 2)}
-    return ConsultResponse(profile=profile_result, skincare=skincare,
-                           skincare_status="live", makeup=makeup, routine=_routine(skincare),
-                           shopping_list=shopping)
+        out = rec.recommend(profile, k=30, explain=False).reset_index()   # a wide pool so budgets can be met
+        shown = rec.recommend(profile, k=req.per_category).reset_index()
+        skincare[category] = [_skincare_item(r, skin_type, active_concerns) for r in shown.itertuples()]
+        plain[category] = [_candidate(r, skin_type, active_concerns) for r in out.itertuples()]
+    routine, shopping = _plan(req, plain, skin_type, active_concerns)
+    return ConsultResponse(profile=profile_result, skincare=skincare, skincare_status="live", makeup=_makeup(req),
+                           routine=routine, shopping_list=shopping)
 
 
 @router.get("/products/{product_id}", response_model=ProductDetail)
@@ -591,3 +622,80 @@ def makeup_web(kind: Literal["lips", "blush", "eyes", "foundation"],
         return WebSearchResponse(status="error", query=query, note=str(e))
     return WebSearchResponse(status="live", query=query, results=[WebResult(**x) for x in found],
                              note="Third-party web content, shown as-is. Not used by the models.")
+
+
+class SwapItem(BaseModel):
+    for_product_uid: str
+    product_uid: str
+    product_id: int
+    name: str
+    brand: str
+    price: float
+    saving: float
+    similarity: float
+    aicosmetic_score: int
+    verdict: Literal["Recommended", "Okay", "Caution"]
+    note: str
+
+
+class DupeResponse(BaseModel):
+    product_id: int
+    swaps: list[SwapItem]
+    note: str
+
+
+@router.get("/products/{product_id}/dupes", response_model=DupeResponse)
+def product_dupes(product_id: int = Path(..., ge=0), skin_type: str | None = None,
+                  min_saving: float = Query(rt.MIN_SAVING, ge=0),
+                  min_similarity: float = Query(rt.MIN_SIMILARITY, ge=0, le=1)):
+    """Cheaper products of the same category with a similar ingredient list that score nearly as well."""
+    products = state["rec"].products
+    if product_id not in products.index:
+        raise HTTPException(404, "Unknown product")
+    _check_inputs(skin_type, [])
+    p_like = state["rec"].predict_like(skin_type)
+
+    def scorer(pid: int):
+        score, verdict, _ = _score(pid, float(p_like[pid]), skin_type, [])
+        return score, verdict
+
+    uid = f"sephora_reviews:{product_id}"
+    score, _ = scorer(product_id)
+    similar = state["catalog"].similar(uid, k=20, same_category=True, other_source=False, source="sephora_reviews")
+    similar = similar[similar["similarity"] >= min_similarity]
+    item = {"product_uid": uid, "price": float(products.at[product_id, "Price"]), "score": score,
+            "category": products.at[product_id, "Category"]}
+    saving = max(min_saving, 0)
+    found = [s for s in rt.find_swaps(item, similar, scorer, {uid}, [], None, k=5) if s["saving"] >= saving]
+    note = ("Similar ingredient list is not a guarantee of the same results." if found else
+            "No cheaper product with a similar ingredient list was found; close matches are rare in this catalog.")
+    return DupeResponse(product_id=product_id, swaps=[SwapItem(**s) for s in found], note=note)
+
+
+class RoutineCheckRequest(BaseModel):
+    am: list[str] = Field([], description="product_uid values, e.g. sephora_reviews:12 or open_beauty_facts:3600...")
+    pm: list[str] = []
+
+
+class RoutineCheckResponse(BaseModel):
+    clashes: list[Clash]
+    notes: list[str]
+
+
+@router.post("/routine/check", response_model=RoutineCheckResponse)
+def routine_check(req: RoutineCheckRequest):
+    """Check a routine you already use for ingredient clashes. Products come from /catalog/search (`product_uid`)."""
+    df = state["catalog"].df
+    clashes = []
+    for slot, uids in (("am", req.am), ("pm", req.pm)):
+        items = []
+        for uid in uids:
+            row = df[df["product_uid"] == uid]
+            if row.empty:
+                raise HTTPException(404, f"Unknown product '{uid}'")
+            r = row.iloc[0]
+            items.append({"name": r["name"], "category": r["category"], "ingredients": r["ingredients"]})
+        clashes += [Clash(**c) for c in rt.find_clashes(slot, items)]
+    notes = [] if clashes else ["No known clashes among these products' main active ingredients."]
+    notes.append("Rule-based checks on listed ingredients; concentrations are unknown. Not medical advice.")
+    return RoutineCheckResponse(clashes=clashes, notes=notes)

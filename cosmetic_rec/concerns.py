@@ -196,3 +196,8 @@ def concern_fit(concerns: list[str], ingredients: str) -> float | None:
 
 def watch_flags(concerns: list[str], ingredients: str) -> list[str]:
     return sorted({f for c in concerns for f in watch_hits(c, ingredients)})
+
+
+def watch_substrings(concerns: list[str]) -> list[str]:
+    """Every substring that marks an ingredient as 'often aggravating' for any of the concerns."""
+    return sorted({sub for c in concerns for _, subs in WATCH.get(c, []) for sub in subs})
