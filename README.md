@@ -3,7 +3,7 @@
 Two features behind one REST API:
 
 1. **Skincare recommender (machine learning).** Ranks 315 skincare products using a model trained on 8,649 real reviews.
-2. **Makeup shade matcher (computer vision).** Upload a face photo; OpenCV measures your skin colour and a k-NN search finds the closest real foundation shades from 36 brands (625 shades).
+2. **Makeup shade matcher (computer vision).** Upload a face photo; OpenCV measures your skin colour and a k-NN search finds the closest real foundation shades from 36 brands (621 shades).
 
 **Stack:** Python, scikit-learn, OpenCV, pandas/NumPy, FastAPI, Pydantic, joblib, Docker, GitHub Actions, pytest, ruff.
 
@@ -16,7 +16,7 @@ flowchart LR
     T --> H
   end
   subgraph Makeup
-    P[Face photo] --> O[OpenCV: Haar face detect, k-means skin colour, CIELAB] --> K[k-NN over 625 shades]
+    P[Face photo] --> O[OpenCV: Haar face detect, k-means skin colour, CIELAB] --> K[k-NN over 621 shades]
   end
   H --> A[FastAPI + Pydantic]
   K --> A

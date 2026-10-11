@@ -1,44 +1,104 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cosmetic Recommender (placeholder UI)</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px}
-fieldset{margin:20px 0}label{display:block;margin:6px 0}pre{background:#f4f4f4;padding:10px;overflow:auto}
-.sw{display:inline-block;width:18px;height:18px;vertical-align:middle;border:1px solid #888;margin-right:6px}</style></head><body>
-<h1>Cosmetic Recommender</h1><p><em>Placeholder UI. Styling comes later.</em></p>
+<title>Cosmetic Recommender</title>
+<style>
+:root{--ink:#222;--mut:#777;--line:#ddd;--acc:#c4654a}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,sans-serif;color:var(--ink);background:#fafafa}
+header,main{max-width:760px;margin:0 auto;padding:0 16px}
+header{padding-top:24px}h1{margin:0;font-size:22px}.sub{color:var(--mut);margin:2px 0 16px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:10px 16px;font:inherit;cursor:pointer;color:var(--mut);border-bottom:2px solid transparent}
+.tabs button[aria-selected=true]{color:var(--ink);border-color:var(--acc)}
+.panel{display:none;padding:20px 0}.panel.on{display:block}
+form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+label{display:grid;gap:4px;font-size:13px;color:var(--mut)}.full{grid-column:1/-1}
+select,input{font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+.check{display:flex;align-items:center;gap:8px;color:var(--ink)}.check input{width:auto}
+button.go{padding:10px 16px;border:0;border-radius:6px;background:var(--ink);color:#fff;font:inherit;cursor:pointer}
+button.go:hover{background:var(--acc)}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:10px}
+.card b,.shade b{display:block}.meta{color:var(--mut);font-size:13px}.why{font-size:13px;margin-top:4px}
+.shade{display:flex;gap:12px;align-items:center}
+.sw{flex:none;width:44px;height:44px;border-radius:6px;border:1px solid var(--line)}
+.preview{display:flex;gap:16px;align-items:center;margin:16px 0}
+.preview img{width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:#eee;margin-left:6px}
+.msg{color:var(--mut)}.err{color:#b3261e}
+@media(max-width:560px){form{grid-template-columns:1fr}}
+</style></head><body>
+<header><h1>Cosmetic Recommender</h1><p class="sub">Skincare picks from a trained model. Foundation matching from a face photo.</p>
+<div class="tabs" role="tablist">
+  <button role="tab" id="t1" aria-selected="true" aria-controls="p1">Skincare</button>
+  <button role="tab" id="t2" aria-selected="false" aria-controls="p2">Makeup</button>
+</div></header>
 
-<fieldset><legend><b>1. Skincare (ML model)</b></legend>
-<label>Skin type <select id="skin"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
-<label>Category <select id="cat"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
-<label>Max price <input id="price" type="number" min="0"></label>
-<label>Avoid ingredients <input id="avoid" placeholder="fragrance, alcohol"></label>
-<label>A product you liked <input id="liked" list="products"></label><datalist id="products"></datalist>
-<label><input id="sens" type="checkbox"> Sensitive skin</label>
-<button id="go1">Recommend</button><div id="out1"></div></fieldset>
+<main>
+<section id="p1" class="panel on" role="tabpanel" aria-labelledby="t1">
+  <form id="f1">
+    <label>Skin type<select id="skin"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
+    <label>Category<select id="cat"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
+    <label>Max price ($)<input id="price" type="number" min="0" placeholder="No limit"></label>
+    <label>Avoid ingredients<input id="avoid" placeholder="fragrance, alcohol"></label>
+    <label class="full">A product you liked (optional)<input id="liked" list="products" placeholder="Start typing a name"></label>
+    <datalist id="products"></datalist>
+    <label class="check full"><input id="sens" type="checkbox"> Sensitive skin</label>
+    <button class="go full">Recommend</button>
+  </form>
+  <div id="out1" aria-live="polite"></div>
+</section>
 
-<fieldset><legend><b>2. Makeup foundation match (OpenCV)</b></legend>
-<label>Face photo <input id="photo" type="file" accept="image/*"></label>
-<label>Brand (optional) <select id="brand"><option value="">Any</option></select></label>
-<button id="go2">Find my shade</button><div id="out2"></div></fieldset>
+<section id="p2" class="panel" role="tabpanel" aria-labelledby="t2">
+  <form id="f2">
+    <label class="full">Front-facing, well-lit face photo (analysed in memory, never stored)<input id="photo" type="file" accept="image/*"></label>
+    <label>Brand (optional)<select id="brand"><option value="">Any</option></select></label>
+    <label>Shades to show<select id="k"><option>5</option><option>8</option><option>12</option></select></label>
+    <button class="go full">Find my foundation shade</button>
+  </form>
+  <div id="out2" aria-live="polite"></div>
+</section>
+</main>
 
 <script>
 const $=id=>document.getElementById(id),ids={};
-const show=(el,x)=>el.innerHTML=x;
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-fetch('/skincare/products?limit=400').then(r=>r.json()).then(ps=>ps.forEach(p=>{const l=`${p.Product} (${p.Brand})`;ids[l]=p.Product_id;
- const o=document.createElement('option');o.value=l;$('products').append(o)}));
-fetch('/makeup/brands').then(r=>r.json()).then(bs=>bs.forEach(b=>{const o=document.createElement('option');o.textContent=b;$('brand').append(o)}));
-$('go1').onclick=async()=>{const liked=ids[$('liked').value];
- const body={skin_type:$('skin').value||null,category:$('cat').value||null,max_price:$('price').value?+$('price').value:null,
-  sensitive:$('sens').checked,avoid_ingredients:$('avoid').value.split(',').map(s=>s.trim()).filter(Boolean),liked_product_ids:liked?[liked]:[],k:8};
- show($('out1'),'Loading...');
- const r=await fetch('/skincare/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
- if(!r.ok)return show($('out1'),'Error '+r.status);
- const j=await r.json();
- show($('out1'),j.count?'<ol>'+j.results.map(p=>`<li><b>${esc(p.Product)}</b> (${esc(p.Brand)}, ${esc(p.Category)}, $${p.Price})<br><small>${esc(p.why)}</small></li>`).join('')+'</ol>':'No matches.')};
-$('go2').onclick=async()=>{const f=$('photo').files[0];if(!f)return show($('out2'),'Choose a photo first.');
- show($('out2'),'Analysing...');
- const r=await fetch('/makeup/match-photo?k=6'+($('brand').value?'&brand='+encodeURIComponent($('brand').value):''),{method:'POST',body:f});
- const j=await r.json();if(!r.ok)return show($('out2'),esc(j.detail||r.status));
- show($('out2'),`<p>Skin colour <span class="sw" style="background:${esc(j.face.skin_hex)}"></span>${esc(j.face.skin_hex)}, tone: <b>${esc(j.face.tone)}</b></p><ol>`+
-  j.matches.map(m=>`<li><span class="sw" style="background:${esc(m.hex)}"></span><b>${esc(m.brand)} ${esc(m.product)}</b> ${esc(m.hex)} <small>(colour difference ${m.delta_e})</small></li>`).join('')+'</ol>')};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(url,opts){const r=await fetch(url,opts);const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(typeof j.detail==='string'?j.detail:'Request failed ('+r.status+')');return j}
+
+/* tabs */
+['t1','t2'].forEach((t,i)=>$(t).onclick=()=>{[0,1].forEach(n=>{
+  $('t'+(n+1)).setAttribute('aria-selected',n===i);$('p'+(n+1)).classList.toggle('on',n===i)})});
+
+/* skincare */
+api('/skincare/products?limit=400').then(ps=>ps.forEach(p=>{const l=`${p.Product} (${p.Brand})`;ids[l]=p.Product_id;
+  const o=document.createElement('option');o.value=l;$('products').append(o)})).catch(()=>{});
+$('f1').onsubmit=async e=>{e.preventDefault();const out=$('out1');const liked=ids[$('liked').value];
+  const body={skin_type:$('skin').value||null,category:$('cat').value||null,
+    max_price:$('price').value?+$('price').value:null,sensitive:$('sens').checked,
+    avoid_ingredients:$('avoid').value.split(',').map(s=>s.trim()).filter(Boolean),
+    liked_product_ids:liked?[liked]:[],k:8};
+  out.innerHTML='<p class="msg">Loading…</p>';
+  try{const j=await api('/skincare/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    out.innerHTML=j.count?j.results.map((p,i)=>`<div class="card"><b>${i+1}. ${esc(p.Product)}</b>
+      <span class="meta">${esc(p.Brand)} · ${esc(p.Category)} · $${esc(p.Price)}</span><div class="why">${esc(p.why)}</div></div>`).join('')
+      :'<p class="msg">No products match those filters.</p>'}
+  catch(err){out.innerHTML=`<p class="err">${esc(err.message)}</p>`}};
+
+/* makeup */
+api('/makeup/brands').then(bs=>bs.forEach(b=>{const o=document.createElement('option');o.textContent=b;$('brand').append(o)})).catch(()=>{});
+const quality=d=>d<2?'Excellent':d<4?'Close':'Approximate';
+$('f2').onsubmit=async e=>{e.preventDefault();const out=$('out2'),f=$('photo').files[0];
+  if(!f){out.innerHTML='<p class="msg">Choose a photo first.</p>';return}
+  out.innerHTML='<p class="msg">Analysing…</p>';
+  try{const q=`?k=${$('k').value}`+($('brand').value?`&brand=${encodeURIComponent($('brand').value)}`:'');
+    const j=await api('/makeup/match-photo'+q,{method:'POST',body:f});
+    const url=URL.createObjectURL(f);
+    out.innerHTML=`<div class="preview"><img src="${url}" alt="Your photo">
+      <div><div class="meta">Measured skin colour</div><div class="shade"><span class="sw" style="background:${esc(j.face.skin_hex)}"></span>
+      <div><b>${esc(j.face.skin_hex)}</b><span class="meta">Tone: ${esc(j.face.tone)}</span></div></div></div></div>`+
+      j.matches.map(m=>`<div class="card shade"><span class="sw" style="background:${esc(m.hex)}"></span>
+        <div><b>${esc(m.brand)} · ${esc(m.product)}</b><span class="meta">${esc(m.hex)} · colour difference ${esc(m.delta_e)}</span>
+        <span class="tag">${quality(m.delta_e)}</span></div></div>`).join('')+
+      '<p class="meta">Estimated from pixel colour, so lighting matters. Treat as a shortlist.</p>'}
+  catch(err){out.innerHTML=`<p class="err">${esc(err.message)}</p>`}};
 </script></body></html>
