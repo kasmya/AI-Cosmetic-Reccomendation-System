@@ -113,9 +113,31 @@ class Recommender:
 
     # ---------- inference ----------
     def predict_like(self, skin_type: str | None, skin_tone: str | None = None) -> pd.Series:
-        ids = self.products.index.to_numpy()
-        X = self._design(pd.Series([skin_type] * len(ids)), ids, pd.Series([skin_tone] * len(ids)))
-        return pd.Series(self.clf.predict_proba(X)[:, 1], index=ids)
+        """P(user rates each product 4-5 stars) for every product. The fitted model never changes, so results are
+        cached per (skin type, tone): there are only ~55 distinct inputs, and this call used to be 7 x 33 ms of every
+        consultation (found by the load test). The cache is per instance and is not saved with the model."""
+        cache = self.__dict__.setdefault("_like_cache", {})
+        key = (skin_type, skin_tone)
+        if key not in cache:
+            ids = self.products.index.to_numpy()
+            X = self._design(pd.Series([skin_type] * len(ids)), ids, pd.Series([skin_tone] * len(ids)))
+            cache[key] = pd.Series(self.clf.predict_proba(X)[:, 1], index=ids)
+        return cache[key].copy()          # a copy, so a caller cannot corrupt the cache
+
+    def _concern_arrays(self, concern: str) -> tuple[np.ndarray, np.ndarray]:
+        """(helpful-ingredient fit, watch flag) for one concern over the whole catalog, computed once and cached."""
+        cache = self.__dict__.setdefault("_concern_cache", {})
+        if concern not in cache:
+            ing = self.products["Ingredients"]
+            cache[concern] = (np.array([min(len(helpful_hits(concern, t)), 2) / 2 for t in ing]),
+                              np.array([float(bool(watch_hits(concern, t))) for t in ing]))
+        return cache[concern]
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        for derived in ("_like_cache", "_concern_cache"):
+            state.pop(derived, None)      # derived data: never persisted in a registry artifact
+        return state
 
     # ------------------------------------------------------------------------------------------------
     # Recommendation pipeline.  Stage 0 hard constraints -> stage 1 candidate retrieval (cheap score, optional
@@ -153,10 +175,9 @@ class Recommender:
             sim = (self.unit @ self.unit[liked].T).mean(axis=1)
         concern_fit, watch = np.zeros(len(p)), np.zeros(len(p))
         if profile.concerns:
-            concern_fit = np.mean([[min(len(helpful_hits(c, t)), 2) / 2 for t in p["Ingredients"]]
-                                   for c in profile.concerns], axis=0)
-            watch = np.max([[float(bool(watch_hits(c, t))) for t in p["Ingredients"]]
-                            for c in profile.concerns], axis=0)
+            arrays = [self._concern_arrays(c) for c in profile.concerns]
+            concern_fit = np.mean([a[0] for a in arrays], axis=0)
+            watch = np.max([a[1] for a in arrays], axis=0)
         return {"p_like": p_like, "sim": sim, "concern_fit": concern_fit, "watch": watch,
                 "site": _z(self.pfeat["site_rating"].to_numpy())}
 

@@ -9,3 +9,5 @@ models/registry/
 .env
 .DS_Store
 var/
+loadtest/_*
+loadtest/out*

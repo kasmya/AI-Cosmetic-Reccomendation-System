@@ -1,0 +1,67 @@
+# One-command stack: API + PostgreSQL + Prometheus + Grafana.
+#   cp .env.example .env     # optional: TAVILY_API_KEY, OPS_TOKEN, passwords
+#   docker compose up --build
+# API http://localhost:8000   Grafana http://localhost:3000 (admin / GRAFANA_PASSWORD)   Prometheus http://localhost:9090
+# Retrain from stored feedback and let the promotion gate decide:
+#   docker compose run --rm api python -m cosmetic_rec.train --with-feedback
+# NOTE: this file could not be run on the machine it was written on (no Docker); CI validates it with `docker compose config`.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: cosmetic
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cosmetic}
+      POSTGRES_DB: cosmetic
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cosmetic -d cosmetic"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://cosmetic:${POSTGRES_PASSWORD:-cosmetic}@db:5432/cosmetic
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      OPS_TOKEN: ${OPS_TOKEN:-}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - registry:/app/models/registry
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:
+  registry:
+  promdata:
+  grafanadata:

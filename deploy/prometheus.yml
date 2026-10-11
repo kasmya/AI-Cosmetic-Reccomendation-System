@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: cosmetic-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]
+    # If OPS_TOKEN is set for the API, put the token in deploy/ops_token (no trailing newline), mount it into the
+    # container and uncomment:
+    # authorization:
+    #   credentials_file: /etc/prometheus/ops_token

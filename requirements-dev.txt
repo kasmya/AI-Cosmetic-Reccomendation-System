@@ -2,3 +2,4 @@ pytest
 httpx
 scikit-image
 ruff
+pyyaml

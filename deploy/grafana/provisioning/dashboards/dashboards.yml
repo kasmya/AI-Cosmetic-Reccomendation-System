@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: cosmetic
+    folder: Cosmetic Recommender
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

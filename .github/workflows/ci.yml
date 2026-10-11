@@ -3,11 +3,43 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: cosmetic
+          POSTGRES_PASSWORD: cosmetic
+          POSTGRES_DB: cosmetic_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cosmetic -d cosmetic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_POSTGRES_URL: postgresql+psycopg://cosmetic:cosmetic@localhost:5432/cosmetic_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12", cache: pip}
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: ruff check .
-      - run: pytest -q
-      - run: python -m cosmetic_rec.train
+      - run: pytest -q                       # includes the database tests against the Postgres service above
+      - run: python -m cosmetic_rec.train    # registry bootstrap: trains, registers and promotes a first model
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the compose file
+        run: docker compose config -q
+      - name: Build the image (trains and registers a model inside it)
+        run: docker build -t cosmetic-rec .
+      - name: Smoke-test the container
+        run: |
+          docker run -d --name api -p 8000:8000 -e WEB_CONCURRENCY=2 cosmetic-rec
+          for i in $(seq 1 40); do curl -sf localhost:8000/health && break; sleep 2; done
+          curl -sf localhost:8000/health
+          curl -sf -X POST localhost:8000/api/v1/consult -H 'content-type: application/json' \
+            -d '{"skin_type":"Dry","total_budget":120}' > /dev/null
+          curl -sf localhost:8000/metrics | grep -q 'http_requests_total'
+          curl -sf localhost:8000/model-info | grep -q '"champion"'
+          docker logs api | tail -15

@@ -14,6 +14,7 @@ from .catalog import build_catalog
 from .catalog_index import CatalogIndex
 from .data import SKIN_TYPES
 from .db import Database
+from .drift import compute_drift
 from .makeup import ShadeMatcher
 from .makeup_look import SkinProfiler
 from .recommender import UserProfile
@@ -75,6 +76,7 @@ async def observe(request: Request, call_next):
 
 @app.get("/metrics", include_in_schema=False, dependencies=[Depends(require_ops_token)])
 def prometheus_metrics():
+    metrics.refresh_drift(lambda: compute_drift(state["db"].recent_events(2000)))
     body, content_type = metrics.render()
     return Response(body, media_type=content_type)
 

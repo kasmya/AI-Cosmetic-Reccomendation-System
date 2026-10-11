@@ -1,0 +1,17 @@
+.git
+.github
+.env
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+tests
+docs
+loadtest
+deploy
+var
+models/registry
+models/*.joblib
+frontend/.DS_Store
+**/.DS_Store

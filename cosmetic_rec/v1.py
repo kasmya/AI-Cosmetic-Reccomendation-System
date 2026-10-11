@@ -333,15 +333,19 @@ def _review_summary(product_id: int, skin_type: str | None = None) -> ReviewSumm
         note="Themes and quotes come from our dataset's user-written reviews. Polarity is a model estimate.")
 
 
-def _score(product_id: int, p_like: float, skin_type: str | None,
-           concerns: list[str]) -> tuple[int, str, ScoreBreakdown]:
-    """The AICosmetic score for one product (formula and weights: see score.py)."""
+def _score(product_id: int, p_like: float, skin_type: str | None, concerns: list[str],
+           fit: float | None = None, flags: list[str] | None = None) -> tuple[int, str, ScoreBreakdown]:
+    """The AICosmetic score for one product (formula and weights: see score.py). `fit` and `flags` may be passed when
+    the ranking stage already computed them (same definitions), which avoids re-scanning the ingredient text."""
     intel = state["intel"]
-    ingredients = state["rec"].products.at[product_id, "Ingredients"]
     counts = intel.counts(product_id, skin_type)
     share, basis = review_component(counts, intel.global_share, skin_type)
-    fit = cx.concern_fit(concerns, ingredients)
-    flags = cx.watch_flags(concerns, ingredients)
+    if fit is None and flags is None:
+        ingredients = state["rec"].products.at[product_id, "Ingredients"]
+        fit = cx.concern_fit(concerns, ingredients)
+        flags = cx.watch_flags(concerns, ingredients)
+    elif not concerns:
+        fit = None
     result = combine(p_like, share, fit, len(flags))
     return result["score"], result["verdict"], ScoreBreakdown(
         model_like_probability=round(p_like, 3), review_sentiment=round(share, 3), review_basis=basis,
@@ -396,7 +400,8 @@ def _alternatives(product_id: int) -> list[Alternative]:
 
 
 def _skincare_item(r, skin_type: str | None, concerns: list[str]) -> SkincareItem:
-    score, verdict, breakdown = _score(int(r.Product_id), float(r.p_like), skin_type, concerns)
+    score, verdict, breakdown = _score(int(r.Product_id), float(r.p_like), skin_type, concerns,
+                                       float(r.concern_fit), list(r.ingredient_flags))
     return SkincareItem(
         product_id=int(r.Product_id), name=r.Product, brand=r.Brand, category=r.Category, price=float(r.Price),
         source="sephora_reviews", aicosmetic_score=score, verdict=verdict, score_status="live",
@@ -439,7 +444,8 @@ def _makeup(req) -> MakeupLook:
 
 def _candidate(r, skin_type, concerns: list[str]) -> dict:
     """Lightweight scored candidate for the planner (no alternatives lookup)."""
-    score, verdict, _ = _score(int(r.Product_id), float(r.p_like), skin_type, concerns)
+    score, verdict, _ = _score(int(r.Product_id), float(r.p_like), skin_type, concerns,
+                               float(r.concern_fit), list(r.ingredient_flags))
     return {"product_id": int(r.Product_id), "name": r.Product, "brand": r.Brand, "category": r.Category,
             "price": float(r.Price), "score": score, "verdict": verdict, "source": "sephora_reviews"}
 

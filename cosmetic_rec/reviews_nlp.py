@@ -74,14 +74,32 @@ class ReviewStats:
         self._by_product = {pid: g for pid, g in self.reviews.groupby("Product_id")}
         return self
 
+    def _table(self) -> dict:
+        """{product_id: {"n", "pos", "skin": {skin_type: (n, pos)}}}, built once on first use (not persisted)."""
+        table = self.__dict__.get("_count_table")
+        if table is None:
+            table = {}
+            r = self.reviews
+            pos = (r["Rating_Stars"] >= 4).to_numpy()
+            for pid, skin, is_pos in zip(r["Product_id"], r["Skin_Type"], pos, strict=True):
+                e = table.setdefault(int(pid), {"n": 0, "pos": 0, "skin": {}})
+                e["n"] += 1
+                e["pos"] += int(is_pos)
+                if isinstance(skin, str):
+                    n, p = e["skin"].get(skin, (0, 0))
+                    e["skin"][skin] = (n + 1, p + int(is_pos))
+            self.__dict__["_count_table"] = table
+        return table
+
     def counts(self, product_id: int, skin_type: str | None = None) -> dict:
-        p = self._by_product.get(product_id, self.reviews.iloc[0:0])
-        pos = p["Rating_Stars"] >= 4
-        out = {"n": len(p), "pos": int(pos.sum()), "n_skin": 0, "pos_skin": 0}
-        if skin_type:
-            m = p["Skin_Type"] == skin_type
-            out["n_skin"], out["pos_skin"] = int(m.sum()), int((pos & m).sum())
-        return out
+        e = self._table().get(int(product_id), {"n": 0, "pos": 0, "skin": {}})
+        n_skin, pos_skin = e["skin"].get(skin_type, (0, 0)) if skin_type else (0, 0)
+        return {"n": e["n"], "pos": e["pos"], "n_skin": n_skin, "pos_skin": pos_skin}
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_count_table", None)
+        return state
 
 
 class ReviewIntel(ReviewStats):
