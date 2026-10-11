@@ -117,9 +117,16 @@ class Recommender:
         X = self._design(pd.Series([skin_type] * len(ids)), ids, pd.Series([skin_tone] * len(ids)))
         return pd.Series(self.clf.predict_proba(X)[:, 1], index=ids)
 
-    def recommend(self, profile: UserProfile, k: int = 10, explain: bool = True) -> pd.DataFrame:
-        # merge with defaults so artifacts saved before a weight existed keep working
-        p, w = self.products, {**DEFAULT_WEIGHTS, **self.weights}
+    # ------------------------------------------------------------------------------------------------
+    # Recommendation pipeline.  Stage 0 hard constraints -> stage 1 candidate retrieval (cheap score, optional
+    # cut-off) -> stage 2 ranking (calibrated model + taste + concern fit - watch penalty) -> stage 3 re-ranking
+    # (brand diversity).
+    # Scores are normalised over the WHOLE catalog, so cutting candidates never changes a candidate's score.
+    # At ~300 products the cut-off is for structure, not speed: its recall cost is measured in evaluate.py.
+    # ------------------------------------------------------------------------------------------------
+    def _constraints(self, profile: UserProfile) -> np.ndarray:
+        """Stage 0: products that are allowed at all (category, price, avoid list, sensitivity, exclusions, makeup)."""
+        p = self.products
         mask = np.ones(len(p), dtype=bool)
         if profile.category:
             mask &= (p["Category"] == profile.category).to_numpy()
@@ -133,31 +140,79 @@ class Recommender:
             mask &= (p["Sensitive"] == 1).to_numpy()
         if not profile.include_makeup and "is_makeup" in p:      # artifacts saved earlier lack the column
             mask &= ~p["is_makeup"].to_numpy()
+        return mask
 
-        p_like = self.predict_like(profile.skin_type, profile.skin_tone)
-        score = w["model"] * _z(p_like)
+    def _components(self, profile: UserProfile) -> dict[str, np.ndarray]:
+        """Per-product signals over the whole catalog: model probability, ingredient similarity to liked products,
+        concern fit and watch flags."""
+        p = self.products
+        p_like = self.predict_like(profile.skin_type, profile.skin_tone).to_numpy()
         sim = np.zeros(len(p))
         liked = [self._pos[i] for i in profile.liked_product_ids if i in self._pos]
         if liked:
             sim = (self.unit @ self.unit[liked].T).mean(axis=1)
-            score = score + w["taste"] * _z(sim)
-
-        concern_fit = np.zeros(len(p))
-        watch = np.zeros(len(p))
+        concern_fit, watch = np.zeros(len(p)), np.zeros(len(p))
         if profile.concerns:
             concern_fit = np.mean([[min(len(helpful_hits(c, t)), 2) / 2 for t in p["Ingredients"]]
                                    for c in profile.concerns], axis=0)
             watch = np.max([[float(bool(watch_hits(c, t))) for t in p["Ingredients"]]
                             for c in profile.concerns], axis=0)
-            score = score + w["concern"] * _z(concern_fit) - w["watch"] * watch
+        return {"p_like": p_like, "sim": sim, "concern_fit": concern_fit, "watch": watch,
+                "site": _z(self.pfeat["site_rating"].to_numpy())}
 
-        out = p.assign(score=score, p_like=p_like.to_numpy(), similarity=sim, concern_fit=concern_fit)[mask]
-        out = out.sort_values("score", ascending=False).head(k)
+    def _retrieve(self, profile, mask, c, limit: int | None, w) -> np.ndarray:
+        """Stage 1: eligible positions, cut to `limit` by a cheap score that does not call the model."""
+        pos = np.flatnonzero(mask)
+        if limit is None or len(pos) <= limit:
+            return pos
+        cheap = c["site"] + w["taste"] * _z(c["sim"]) + w["concern"] * _z(c["concern_fit"]) - w["watch"] * c["watch"]
+        return pos[np.argsort(-cheap[pos], kind="stable")[:limit]]
+
+    def _rank(self, c, w) -> np.ndarray:
+        """Stage 2: the full score."""
+        score = w["model"] * _z(c["p_like"])
+        if c["sim"].any():
+            score = score + w["taste"] * _z(c["sim"])
+        if c["concern_fit"].any() or c["watch"].any():
+            score = score + w["concern"] * _z(c["concern_fit"]) - w["watch"] * c["watch"]
+        return score
+
+    @staticmethod
+    def _rerank(ranked: pd.DataFrame, k: int, max_per_brand: int | None) -> pd.DataFrame:
+        """Stage 3: keep the order but allow at most `max_per_brand` products per brand in the top k
+        (skipped products fill any remaining places so k results are still returned)."""
+        if max_per_brand is None:
+            return ranked.head(k)
+        kept, skipped, seen = [], [], {}
+        for idx, brand in zip(ranked.index, ranked["Brand"], strict=True):
+            if seen.get(brand, 0) < max_per_brand:
+                kept.append(idx)
+                seen[brand] = seen.get(brand, 0) + 1
+            else:
+                skipped.append(idx)
+            if len(kept) == k:
+                break
+        return ranked.loc[(kept + skipped)[:k]]
+
+    def recommend(self, profile: UserProfile, k: int = 10, explain: bool = True, candidate_limit: int | None = None,
+                  max_per_brand: int | None = None) -> pd.DataFrame:
+        # merge with defaults so artifacts saved before a weight existed keep working
+        p, w = self.products, {**DEFAULT_WEIGHTS, **self.weights}
+        mask = self._constraints(profile)                                   # stage 0
+        c = self._components(profile)
+        pos = self._retrieve(profile, mask, c, candidate_limit, w)          # stage 1
+        score = self._rank(c, w)                                            # stage 2
+        frame = p.assign(score=score, p_like=c["p_like"], similarity=c["sim"], concern_fit=c["concern_fit"])
+        ranked = frame.iloc[pos].sort_values("score", ascending=False, kind="stable")
+        out = self._rerank(ranked, k, max_per_brand)                        # stage 3
+        trace = {"eligible": int(mask.sum()), "candidates": int(len(pos)), "returned": int(len(out))}
         if explain:
-            out["why"] = [self._explain(r, profile) for r in out.itertuples()]
-        out["ingredient_flags"] = [sorted({f for c in profile.concerns for f in watch_hits(c, ing)})
-                                   for ing in out["Ingredients"]]
-        return out.drop(columns=["Ingredients"])
+            out = out.assign(why=[self._explain(r, profile) for r in out.itertuples()])
+        out = out.assign(ingredient_flags=[sorted({f for c_ in profile.concerns for f in watch_hits(c_, ing)})
+                                           for ing in out["Ingredients"]])
+        out = out.drop(columns=["Ingredients"])
+        out.attrs["trace"] = trace
+        return out
 
     def _explain(self, row, profile):
         who = f"{profile.skin_type.lower()} skin" if profile.skin_type else "a typical user"

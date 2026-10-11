@@ -158,6 +158,51 @@ def retrieval(reviews, seed=0, k=10):
     return pd.DataFrame(results).T, len(users)
 
 
+def candidate_stage(reviews, limits=(None, 150, 100, 50), seed=0, k=10):
+    """What does cutting candidates before ranking cost? Same hidden-product task as retrieval(): HitRate@k and how
+    much of the unrestricted top-k survives the cut ('recall of the top-k')."""
+    train, held = split_leave_one_out(reviews, seed)
+    seen = train.groupby("User_id")["Product_id"].apply(list).to_dict()
+    liked = train[train["Rating_Stars"] >= 4].groupby("User_id")["Product_id"].apply(list).to_dict()
+    skin = reviews.dropna(subset=["Skin_Type"]).groupby("User_id")["Skin_Type"].first().to_dict()
+    products = Recommender().fit(reviews).products
+    rec = Recommender(seed=seed).fit(train, products)
+    users, targets = held["User_id"].tolist(), held["Product_id"].tolist()
+
+    def profile(u):
+        return UserProfile(skin_type=skin.get(u), liked_product_ids=liked.get(u, []), exclude_product_ids=seen[u],
+                           include_makeup=True)
+
+    full = {u: rec.recommend(profile(u), k=len(products), explain=False).index.to_numpy() for u in users}
+    rows = []
+    for limit in limits:
+        ranks, overlap = [], []
+        for u in users:
+            r = full[u] if limit is None else rec.recommend(profile(u), k=len(products), explain=False,
+                                                            candidate_limit=limit).index.to_numpy()
+            ranks.append(r)
+            overlap.append(len(set(r[:k]) & set(full[u][:k])) / k)
+        m = _metrics(ranks, targets, k)
+        rows.append({"candidates": "all" if limit is None else limit, **m, f"top-{k} kept": float(np.mean(overlap))})
+    return pd.DataFrame(rows).set_index("candidates")
+
+
+def diversity_effect(reviews, k=10, cap=2):
+    """Brand diversity re-rank: distinct brands in the top-k and the score given up, over typical consultations."""
+    rec = Recommender().fit(reviews)
+    rows = []
+    for skin in (None, "Dry", "Oily", "Combination", "Normal"):
+        for category in ("Cleanser", "Treatment", "Moisturizer"):
+            prof = UserProfile(skin_type=skin, category=category)
+            for cap_value in (None, cap):
+                out = rec.recommend(prof, k=k, explain=False, max_per_brand=cap_value)
+                rows.append({"cap": cap_value, "distinct brands": out["Brand"].nunique(),
+                             "max per brand": int(out["Brand"].value_counts().max()),
+                             "mean score": out["score"].mean()})
+    df = pd.DataFrame(rows).fillna({"cap": 0})
+    return df.groupby("cap").mean().rename(index={0.0: "no cap", float(cap): f"max {cap} per brand"})
+
+
 if __name__ == "__main__":
     df = load_reviews()
     print("A. Will this user rate it >= 4 stars? (5-fold CV grouped by user)\n")
@@ -166,6 +211,10 @@ if __name__ == "__main__":
     print(pd.Series(sentiment_cv(df)).round(3).to_string())
     print("\nD. Does the AICosmetic score predict held-out reviews? ROC-AUC, 5-fold CV grouped by user\n")
     print(score_validity(df).round(3).to_string())
+    print("\nE. Candidate stage: cost of cutting candidates before ranking (hidden-product task)\n")
+    print(candidate_stage(df).round(3).to_string())
+    print("\nF. Brand-diversity re-rank, top 10 of typical consultations\n")
+    print(diversity_effect(df).round(2).to_string())
     table, n = retrieval(df)
     print(f"\nB. Hidden-product retrieval ({n} users, ~{df.Product_id.nunique()} candidates)\n")
     print(table.round(3).to_string())

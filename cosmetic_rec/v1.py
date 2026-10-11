@@ -29,6 +29,7 @@ router = APIRouter(prefix="/api/v1", tags=["v1"])
 Status = Literal["live", "provisional", "planned"]
 
 COLOUR_PREFS = ["warm", "cool", "neutral", "nude", "pink", "coral", "berry", "bold", "natural"]
+CANDIDATE_LIMIT, MAX_PER_BRAND = 100, 2     # chosen from the measurements in evaluate.py (sections E and F)
 NOT_MEDICAL = "Informational only, not medical advice. See a dermatologist for persistent or severe skin problems."
 
 
@@ -475,8 +476,11 @@ def consult(req: ConsultRequest):
         profile = UserProfile(skin_type=skin_type, skin_tone=req.skin_tone, sensitive=req.sensitive,
                               concerns=active_concerns, category=category, max_price=req.max_price_per_item,
                               avoid_ingredients=req.avoid_ingredients)
-        out = rec.recommend(profile, k=30, explain=False).reset_index()   # a wide pool so budgets can be met
-        shown = rec.recommend(profile, k=req.per_category).reset_index()
+        # a wide pool so budgets can be met (candidate cut-off 100 loses nothing, see evaluate.py), and the picks
+        # shown to the user get the brand-diversity re-rank
+        out = rec.recommend(profile, k=30, explain=False, candidate_limit=CANDIDATE_LIMIT).reset_index()
+        shown = rec.recommend(profile, k=req.per_category, candidate_limit=CANDIDATE_LIMIT,
+                              max_per_brand=MAX_PER_BRAND).reset_index()
         skincare[category] = [_skincare_item(r, skin_type, active_concerns) for r in shown.itertuples()]
         plain[category] = [_candidate(r, skin_type, active_concerns) for r in out.itertuples()]
     routine, shopping = _plan(req, plain, skin_type, active_concerns)
