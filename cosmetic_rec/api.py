@@ -4,12 +4,12 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import registry
+from . import metrics, registry
 from .catalog import build_catalog
 from .catalog_index import CatalogIndex
 from .data import SKIN_TYPES
@@ -17,6 +17,7 @@ from .db import Database
 from .makeup import ShadeMatcher
 from .makeup_look import SkinProfiler
 from .recommender import UserProfile
+from .security import require_ops_token
 from .state import state
 from .train import load_all
 from .v1 import router as v1_router
@@ -40,6 +41,8 @@ async def lifespan(app):
     load_dotenv()
     state["web"] = WebSearch()
     state["db"] = Database()
+    metrics.MODEL_INFO.labels(version=state["meta"].get("version", "unversioned")).set(1)
+    metrics.MODEL_HOLDOUT_AUC.set(state["meta"].get("holdout", {}).get("auc", float("nan")))
     log.info("ready: %s", state["meta"])
     yield
 
@@ -52,13 +55,28 @@ app.include_router(v1_router)
 
 
 @app.middleware("http")
-async def timing(request: Request, call_next):
+async def observe(request: Request, call_next):
+    """Latency header, access log and Prometheus request metrics (labelled by route template)."""
     t0 = time.perf_counter()
-    response = await call_next(request)
-    ms = (time.perf_counter() - t0) * 1000
-    response.headers["X-Process-Time-ms"] = f"{ms:.1f}"
-    log.info("%s %s -> %s in %.1fms", request.method, request.url.path, response.status_code, ms)
-    return response
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        seconds = time.perf_counter() - t0
+        route = metrics.route_label(request)
+        metrics.REQUESTS.labels(request.method, route, str(status_code)).inc()
+        metrics.LATENCY.labels(route).observe(seconds)
+        log.info("%s %s -> %s in %.1fms", request.method, request.url.path, status_code, seconds * 1000)
+        if "response" in locals():
+            response.headers["X-Process-Time-ms"] = f"{seconds * 1000:.1f}"
+
+
+@app.get("/metrics", include_in_schema=False, dependencies=[Depends(require_ops_token)])
+def prometheus_metrics():
+    body, content_type = metrics.render()
+    return Response(body, media_type=content_type)
 
 
 # ---------------- meta ----------------

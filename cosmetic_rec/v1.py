@@ -10,17 +10,19 @@ from typing import Annotated, Literal
 
 import cv2
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Path, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from . import concerns as cx
 from . import makeup_look as ml
-from . import planner
+from . import metrics, planner
 from . import routine as rt
 from .concerns import CONCERNS
 from .data import SKIN_TYPES
+from .drift import compute_drift
 from .recommender import UserProfile
 from .score import combine, confidence, review_component
+from .security import require_ops_token
 from .state import state
 from .tryon import apply_look
 from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_hex_to_lab
@@ -478,7 +480,9 @@ def consult(req: ConsultRequest):
                               avoid_ingredients=req.avoid_ingredients)
         # a wide pool so budgets can be met (candidate cut-off 100 loses nothing, see evaluate.py), and the picks
         # shown to the user get the brand-diversity re-rank
-        out = rec.recommend(profile, k=30, explain=False, candidate_limit=CANDIDATE_LIMIT).reset_index()
+        pool = rec.recommend(profile, k=30, explain=False, candidate_limit=CANDIDATE_LIMIT)
+        metrics.CANDIDATES.observe(pool.attrs["trace"]["candidates"])
+        out = pool.reset_index()
         shown = rec.recommend(profile, k=req.per_category, candidate_limit=CANDIDATE_LIMIT,
                               max_per_brand=MAX_PER_BRAND).reset_index()
         skincare[category] = [_skincare_item(r, skin_type, active_concerns) for r in shown.itertuples()]
@@ -487,6 +491,10 @@ def consult(req: ConsultRequest):
     shown = [{"product_id": i.product_id, "score": i.aicosmetic_score,
               "p_like": i.breakdown.model_like_probability, "verdict": i.verdict}
              for items in skincare.values() for i in items]
+    for v in (i.verdict for items in skincare.values() for i in items):
+        metrics.VERDICTS.labels(v).inc()
+    if shopping["within_budget"] is False:
+        metrics.BUDGET_MISSES.inc()
     request_id = state["db"].log_event(state["meta"].get("version", "unversioned"), skin_type, active_concerns,
                                        req.total_budget, shown)
     return ConsultResponse(request_id=request_id, profile=profile_result, skincare=skincare, skincare_status="live",
@@ -731,4 +739,24 @@ def feedback(req: FeedbackRequest):
         result = state["db"].add_feedback(req.product_id, req.helpful, req.request_id)
     except KeyError as e:
         raise HTTPException(404, "Unknown request_id (it may predate a database reset)") from e
+    metrics.FEEDBACK.labels(str(req.helpful).lower()).inc()
     return FeedbackResponse(ok=True, updated=result["updated"])
+
+
+# ---------------- operations (read-only aggregates; no personal data) ----------------
+@router.get("/ops/stats", dependencies=[Depends(require_ops_token)])
+def ops_stats():
+    """Event and feedback counts, the helpful rate, and the model being served."""
+    c = state["db"].counts()
+    rate = round(c["helpful"] / c["feedback"], 3) if c["feedback"] else None
+    return {**c, "helpful_rate": rate, "database": state["db"].dialect,
+            "model_version": state["meta"].get("version", "unversioned")}
+
+
+@router.get("/ops/drift", dependencies=[Depends(require_ops_token)])
+def ops_drift():
+    """PSI of recent vs older recommendation events (model probability and skin-type mix)."""
+    result = compute_drift(state["db"].recent_events(2000))
+    for name, f in result["features"].items():
+        metrics.DRIFT_PSI.labels(name).set(f["psi"])
+    return result
