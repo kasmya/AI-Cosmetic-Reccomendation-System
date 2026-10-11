@@ -35,9 +35,9 @@ flowchart LR
 | Model | AUC |
 |---|---|
 | Baseline: site rating | 0.591 |
-| Logistic regression | 0.591 |
-| Neural net (MLP) | 0.554 |
-| **Gradient boosting (used)** | **0.599** |
+| Logistic regression | 0.593 |
+| Neural net (MLP) | 0.581 |
+| **Gradient boosting (used)** | **0.595** |
 
 **B. Find the hidden product.** One liked product per user is hidden (417 users, ~315 candidates). HitRate@10 averaged over 5 seeds:
 
@@ -45,10 +45,10 @@ flowchart LR
 |---|---|
 | Random | 3.2% |
 | ML P(like) only | 3.5% |
-| Ingredient similarity only | 8.3% |
-| **Hybrid (used)** | **8.6%** |
+| Ingredient similarity only | 8.2% |
+| **Hybrid (used)** | **8.2%** |
 
-**Honest reading:** the data is small and most users wrote one review, so predicting satisfaction is hard (AUC about 0.6, barely above the site rating; a neural net did not help). Ingredient similarity is what clearly beats chance (about 2.7x random).
+**Honest reading:** the data is small and most users wrote one review, so predicting satisfaction is hard (AUC about 0.6, barely above the site rating; a neural net did not help). Ingredient similarity is what clearly beats chance (about 2.6x random).
 
 **Data leakage found and fixed:** the original notebook reported 100% accuracy because its label `Good_Stuff` is exactly `Rating_Stars == 5` and `Rating_Stars` was an input feature. The dataset also contains repeat user/product reviews that can leak a held-out item; the evaluation removes them.
 
@@ -103,6 +103,10 @@ static/        index.html (placeholder UI)
 tests/         pytest suite
 ```
 
+## Optional: live web search
+Copy `.env.example` to `.env` and set `TAVILY_API_KEY` (a [Tavily](https://tavily.com) key; `.env` is git-ignored). Without it the endpoint reports `disabled` and everything else works.
+
 ## Data credits
+- Extra products: [Open Beauty Facts](https://world.openbeautyfacts.org) (database under ODbL, contents under CC BY-SA 3.0). Trimmed by `scripts/prepare_obf.py` into `data/obf_cosmetics.csv`. Redistribution of derived data keeps the same licence and attribution.
 - Skincare reviews: `skindataall.csv`, from the original project dataset.
 - Foundation shades: [The Pudding, "Beauty Brawl" (2018)](https://github.com/the-pudding/data/tree/master/makeup-shades), hex swatches collected from brand websites. The repository states no license, so it is used here for education and portfolio purposes only.

@@ -23,7 +23,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - Barebones `static/index.html`: a step-by-step wizard wired to those endpoints, with one clearly marked section per feature, ready to restyle.
 - Done when: frontend runs end to end against the API, tests cover the contract.
 
-## Phase 2: Data sources and ingestion
+## Phase 2: Data sources and ingestion (DONE)
 - Inventory of sources, each with licence, fields and what it adds:
   1. Sephora skincare reviews (have): products, ingredients, reviews, skin type.
   2. The Pudding shades (have): 621 foundation shades.
@@ -70,3 +70,12 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 1. OK to download Open Beauty Facts data (open licence)?
 2. Do you have, or want me to look for, a lip/blush/eyeshadow dataset with shade colours?
 3. Confirm the "not medical advice" framing for concern assessment.
+
+## Phase 2 results
+- Sources in the unified catalog (`python -m cosmetic_rec.catalog`): Sephora reviews (315 products, with prices and reviews) and Open Beauty Facts (1,681 face skincare and makeup products with ingredients, no prices or reviews). Foundation shades (621) stay a separate shade table.
+- Shared ingredient cleaning (`ingredients.py`): synonym map (Aqua to water, Parfum to fragrance), noise removal, junk detection. 41 of 315 Sephora ingredient fields (13%) were not ingredient lists and are now treated as missing.
+- Shared category vocabulary (`categories.py`) with 14 categories. New for skincare: Sunscreen (464 products, used for the SPF step in Phase 6) and Toner. New for makeup: Foundation, Concealer, Blush, Lipstick, Mascara, Eyeshadow, Eyeliner (Open Beauty Facts has product names but no shade colours, so lip/blush matching by colour still needs a shade dataset).
+- Cross-source features: `/api/v1/catalog/search`, `/api/v1/catalog/stats`, and "also consider" alternatives (ingredient similarity across sources) inside `/consult`.
+- Optional live web search (Tavily) behind `/api/v1/products/{id}/web`, off unless `TAVILY_API_KEY` is set.
+- Effect on the skincare model: none measurable (AUC 0.599 to 0.595, hybrid hit rate 8.6% to 8.2%, both within noise).
+- Known limits: Open Beauty Facts is mostly European, product names are in many languages, and category assignment is keyword based, so some products are mislabelled. Brand is missing for some rows.

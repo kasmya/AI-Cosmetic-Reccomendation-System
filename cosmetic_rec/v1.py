@@ -8,7 +8,8 @@ See docs/PLAN.md for the phase each planned section lands in.
 """
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Path, Request
+import pandas as pd
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from .data import SKIN_TYPES
@@ -90,6 +91,18 @@ class ScoreBreakdown(BaseModel):
     ingredient_flags: list[str] = []
 
 
+class Alternative(BaseModel):
+    """A similar product from a different data source (matched by ingredient list)."""
+    product_uid: str
+    name: str
+    brand: str
+    category: str
+    source: str
+    price: float | None
+    similarity: float
+    url: str | None
+
+
 class SkincareItem(BaseModel):
     product_id: int
     name: str
@@ -102,6 +115,7 @@ class SkincareItem(BaseModel):
     score_status: Status
     breakdown: ScoreBreakdown
     why: str
+    alternatives: list[Alternative] = []
 
 
 class ShadeItem(BaseModel):
@@ -156,6 +170,17 @@ class ReviewSummary(BaseModel):
     sentiment: float | None
     themes: list[dict]
     quotes: list[str]
+
+
+class CatalogProduct(BaseModel):
+    product_uid: str
+    source: str
+    name: str
+    brand: str
+    category: str
+    price: float | None
+    url: str | None
+    n_ingredients: int
 
 
 class ProductDetail(BaseModel):
@@ -228,13 +253,21 @@ def skin_assess(req: AssessRequest):
     return _assess(req.skin_type, req.concerns)
 
 
+def _alternatives(product_id: int) -> list[Alternative]:
+    similar = state["catalog"].similar(f"sephora_reviews:{product_id}", k=2)
+    return [Alternative(product_uid=r.product_uid, name=r.name, brand=r.brand, category=r.category, source=r.source,
+                        price=None if pd.isna(r.price) else float(r.price), similarity=float(r.similarity),
+                        url=r.url if isinstance(r.url, str) else None) for r in similar.itertuples()]
+
+
 def _skincare_item(r) -> SkincareItem:
     """Provisional score: the model's P(like) as 0-100. Phase 4 replaces it with the full blended score."""
     score = int(round(100 * r.p_like))
     return SkincareItem(
         product_id=int(r.Product_id), name=r.Product, brand=r.Brand, category=r.Category, price=float(r.Price),
         source="sephora_reviews", aicosmetic_score=score, verdict=_verdict(score), score_status="provisional",
-        breakdown=ScoreBreakdown(model_like_probability=round(float(r.p_like), 3)), why=r.why)
+        breakdown=ScoreBreakdown(model_like_probability=round(float(r.p_like), 3)), why=r.why,
+        alternatives=_alternatives(int(r.Product_id)))
 
 
 def _foundation(skin_hex: str | None) -> MakeupSection:
@@ -298,3 +331,53 @@ def review_summary(product_id: int = Path(..., ge=0)):
     if product_id not in state["rec"].products.index:
         raise HTTPException(404, "Unknown product")
     return _review_summary(product_id)
+
+
+@router.get("/catalog/stats")
+def catalog_stats():
+    """Products per source and category, with licences. Shows where the data comes from."""
+    return state["catalog"].stats()
+
+
+@router.get("/catalog/search", response_model=list[CatalogProduct])
+def catalog_search(q: str = "", category: str | None = None, source: str | None = None,
+                   limit: int = Query(20, ge=1, le=100)):
+    """Search every source at once."""
+    rows = state["catalog"].search(q, category, source, limit)
+    return [CatalogProduct(product_uid=r.product_uid, source=r.source, name=r.name, brand=r.brand, category=r.category,
+                           price=None if pd.isna(r.price) else float(r.price),
+                           url=r.url if isinstance(r.url, str) else None,
+                           n_ingredients=len(r.ingredients.split(" | ")) if r.ingredients else 0)
+            for r in rows.itertuples()]
+
+
+class WebResult(BaseModel):
+    title: str
+    url: str
+    snippet: str
+
+
+class WebSearchResponse(BaseModel):
+    status: Literal["live", "disabled", "error"]
+    query: str
+    results: list[WebResult] = []
+    note: str = ""
+
+
+@router.get("/products/{product_id}/web", response_model=WebSearchResponse)
+def product_web(product_id: int = Path(..., ge=0)):
+    """Live web results about a product (reviews, availability). Needs TAVILY_API_KEY; otherwise status='disabled'."""
+    products = state["rec"].products
+    if product_id not in products.index:
+        raise HTTPException(404, "Unknown product")
+    r = products.loc[product_id]
+    query = f"{r['Brand']} {r['Product']} review ingredients"
+    web = state["web"]
+    if not web.enabled:
+        return WebSearchResponse(status="disabled", query=query, note="Set TAVILY_API_KEY to enable live web search.")
+    try:
+        found = web.search(query)
+    except RuntimeError as e:
+        return WebSearchResponse(status="error", query=query, note=str(e))
+    return WebSearchResponse(status="live", query=query, results=[WebResult(**x) for x in found],
+                             note="Third-party web content, shown as-is. Not used by the models.")

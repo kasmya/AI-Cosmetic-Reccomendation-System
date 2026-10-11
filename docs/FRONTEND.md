@@ -12,6 +12,9 @@ Live, typed API reference: run the server and open `/docs`.
 | `res-makeup` | `consult` -> `makeup` (foundation live; lips, blush, eyes planned) | partly live |
 | `res-routine` | `consult` -> `routine` | provisional |
 | `res-shopping` | `consult` -> `shopping_list` | provisional |
+| `res-skincare` alternatives | `consult` -> `skincare[cat][i].alternatives` (similar products from other sources) | live |
+| catalog browsing (not in the barebones UI yet) | `GET /api/v1/catalog/search`, `GET /api/v1/catalog/stats` | live |
+| `res-product` web panel | `GET /api/v1/products/{id}/web` (`status`: live / disabled / error) | live when `TAVILY_API_KEY` is set |
 | `res-product` | `GET /api/v1/products/{id}` and `/reviews/summary` | product live, review summary planned |
 
 ## Conventions

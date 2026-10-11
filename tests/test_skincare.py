@@ -34,7 +34,7 @@ def test_excluded_products_never_returned(rec):
 
 
 def test_liked_product_pulls_similar_ingredients(rec):
-    pid = int(rec.products.index[0])
+    pid = int(rec.products.index[rec.products["Ingredients"] != ""][0])
     out = rec.recommend(UserProfile(liked_product_ids=[pid], exclude_product_ids=[pid]), k=300, explain=False)
     assert out["similarity"].iloc[:10].mean() > out["similarity"].mean()
 

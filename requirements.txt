@@ -5,4 +5,5 @@ joblib
 fastapi
 uvicorn
 pydantic
+httpx
 opencv-python-headless>=4.8,<5

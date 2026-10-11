@@ -8,6 +8,8 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from .catalog import build_catalog
+from .catalog_index import CatalogIndex
 from .data import SKIN_TYPES
 from .makeup import ShadeMatcher
 from .recommender import UserProfile
@@ -15,6 +17,7 @@ from .state import state
 from .train import load
 from .v1 import router as v1_router
 from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_hex_to_lab
+from .websearch import WebSearch, load_dotenv
 
 log = logging.getLogger("cosmetic_rec.api")
 STATIC = Path(__file__).resolve().parent.parent / "static"
@@ -25,6 +28,9 @@ MAX_IMAGE_BYTES = 5_000_000
 async def lifespan(app):
     state["rec"], state["meta"] = load()
     state["shades"] = ShadeMatcher()
+    state["catalog"] = CatalogIndex(build_catalog())
+    load_dotenv()
+    state["web"] = WebSearch()
     log.info("ready: %s", state["meta"])
     yield
 

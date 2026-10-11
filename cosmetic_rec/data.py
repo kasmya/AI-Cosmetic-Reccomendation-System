@@ -4,6 +4,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .ingredients import parse_ingredients
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DEFAULT_CSV = DATA_DIR / "skindataall.csv"
 SKIN_TYPES = ["Combination", "Dry", "Normal", "Oily"]
@@ -18,5 +20,6 @@ def load_reviews(path=DEFAULT_CSV) -> pd.DataFrame:
 def build_products(df: pd.DataFrame) -> pd.DataFrame:
     cols = ["Product_id", "Product", "Brand", "Category", "Price", "Rating", "Ingredients"] + LABELS
     p = df.drop_duplicates("Product_id")[cols].set_index("Product_id").sort_index()
-    p["Ingredients"] = p["Ingredients"].fillna("")
+    # normalised, comma-joined; unusable fields (e.g. "Visit the brand boutique") become ""
+    p["Ingredients"] = p["Ingredients"].map(lambda t: ", ".join(parse_ingredients(t) or []))
     return p

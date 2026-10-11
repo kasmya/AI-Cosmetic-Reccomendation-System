@@ -113,6 +113,7 @@ function render(j) {
   $('res-skincare').querySelector('.body').innerHTML = Object.entries(j.skincare).map(([cat, items]) =>
     `<h3>${esc(cat)}</h3>` + (items.map(p => `<div class="card"><b>${esc(p.name)}</b> <span class="meta">${esc(p.brand)} · $${esc(p.price)} · source: ${esc(p.source)}</span><br>
       Score <b>${esc(p.aicosmetic_score)}</b>/100 · ${esc(p.verdict)} ${badge(p.score_status)}<div class="meta">${esc(p.why)}</div>
+      ${p.alternatives.length ? `<div class="meta">Also consider (other sources): ${p.alternatives.map(a => `${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.name)}</a>` : esc(a.name)} (${esc(a.brand || 'unknown brand')}, ${esc(a.source)}, ingredient similarity ${esc(a.similarity)})`).join('; ')}</div>` : ''}
       <button data-pid="${esc(p.product_id)}">Details</button></div>`).join('') || '<p class="meta">No products match.</p>')).join('');
   // makeup
   const m = j.makeup, sect = (name, s) => `<h3>${name} ${badge(s.status)}</h3>` + (s.items.length
@@ -129,6 +130,17 @@ function render(j) {
   $('disclaimer').textContent = j.disclaimer;
 }
 
+/* ---- web results (GET /api/v1/products/{id}/web, needs TAVILY_API_KEY on the server) ---- */
+async function loadWeb(pid) {
+  try {
+    const w = await api(`/api/v1/products/${pid}/web`);
+    $('web-badge').outerHTML = badge(w.status);
+    $('web-body').innerHTML = w.status === 'live'
+      ? w.results.map(r => `<div class="card"><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.title)}</a><div class="meta">${esc(r.snippet)}</div></div>`).join('') + `<p class="meta">${esc(w.note)}</p>`
+      : `<p class="meta">${esc(w.note)}</p>`;
+  } catch (e) { $('web-body').textContent = e.message; }
+}
+
 /* ---- product detail (GET /api/v1/products/{id}) ---- */
 document.addEventListener('click', async e => {
   const pid = e.target.dataset && e.target.dataset.pid; if (!pid) return;
@@ -137,7 +149,9 @@ document.addEventListener('click', async e => {
     const p = await api(`/api/v1/products/${pid}`), r = p.review_summary;
     box.querySelector('.body').innerHTML = `<b>${esc(p.name)}</b> <span class="meta">${esc(p.brand)} · ${esc(p.category)} · $${esc(p.price)}</span>
       <p class="meta">Ingredients: ${esc(p.ingredients.join(', '))}</p>
-      <h3>Review summary ${badge(r.status)}</h3><p class="meta">${r.status === 'planned' ? 'Review summaries arrive in Phase 4.' : esc(JSON.stringify(r.themes))}</p>`;
+      <h3>Review summary ${badge(r.status)}</h3><p class="meta">${r.status === 'planned' ? 'Review summaries arrive in Phase 4.' : esc(JSON.stringify(r.themes))}</p>
+      <h3>From the web <span id="web-badge"></span></h3><div id="web-body" class="meta">Loading…</div>`;
+    loadWeb(pid);
     box.scrollIntoView({behavior: 'smooth'});
   } catch (err) { box.querySelector('.body').innerHTML = `<span class="err">${esc(err.message)}</span>`; }
 });
