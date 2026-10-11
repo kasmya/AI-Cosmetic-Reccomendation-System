@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from .catalog import build_catalog
 from .catalog_index import CatalogIndex
 from .data import SKIN_TYPES
+from .db import Database
 from .makeup import ShadeMatcher
 from .makeup_look import SkinProfiler
 from .recommender import UserProfile
@@ -37,6 +38,7 @@ async def lifespan(app):
     state["catalog"] = CatalogIndex(build_catalog())
     load_dotenv()
     state["web"] = WebSearch()
+    state["db"] = Database()
     log.info("ready: %s", state["meta"])
     yield
 

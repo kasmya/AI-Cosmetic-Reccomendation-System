@@ -7,3 +7,4 @@ py_3/
 models/*.joblib
 .env
 .DS_Store
+var/

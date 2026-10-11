@@ -6,4 +6,7 @@ fastapi
 uvicorn
 pydantic
 httpx
+sqlalchemy
+prometheus-client
+psycopg[binary]
 opencv-python-headless>=4.8,<5

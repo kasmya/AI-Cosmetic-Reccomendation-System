@@ -217,6 +217,7 @@ class Routine(BaseModel):
 
 
 class ConsultResponse(BaseModel):
+    request_id: str | None = None            # send back with /feedback so a vote is tied to this consultation
     profile: AssessResponse
     skincare: dict[str, list[SkincareItem]]
     skincare_status: Status
@@ -479,8 +480,13 @@ def consult(req: ConsultRequest):
         skincare[category] = [_skincare_item(r, skin_type, active_concerns) for r in shown.itertuples()]
         plain[category] = [_candidate(r, skin_type, active_concerns) for r in out.itertuples()]
     routine, shopping = _plan(req, plain, skin_type, active_concerns)
-    return ConsultResponse(profile=profile_result, skincare=skincare, skincare_status="live", makeup=_makeup(req),
-                           routine=routine, shopping_list=shopping)
+    shown = [{"product_id": i.product_id, "score": i.aicosmetic_score,
+              "p_like": i.breakdown.model_like_probability, "verdict": i.verdict}
+             for items in skincare.values() for i in items]
+    request_id = state["db"].log_event(state["meta"].get("version", "unversioned"), skin_type, active_concerns,
+                                       req.total_budget, shown)
+    return ConsultResponse(request_id=request_id, profile=profile_result, skincare=skincare, skincare_status="live",
+                           makeup=_makeup(req), routine=routine, shopping_list=shopping)
 
 
 @router.get("/products/{product_id}", response_model=ProductDetail)
@@ -699,3 +705,26 @@ def routine_check(req: RoutineCheckRequest):
     notes = [] if clashes else ["No known clashes among these products' main active ingredients."]
     notes.append("Rule-based checks on listed ingredients; concentrations are unknown. Not medical advice.")
     return RoutineCheckResponse(clashes=clashes, notes=notes)
+
+
+class FeedbackRequest(BaseModel):
+    product_id: int = Field(..., ge=0)
+    helpful: bool
+    request_id: str | None = Field(None, max_length=36, description="`request_id` from /consult")
+
+
+class FeedbackResponse(BaseModel):
+    ok: bool
+    updated: bool = False
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+def feedback(req: FeedbackRequest):
+    """Thumbs up / down on a recommended product. Stored without any personal data; used to retrain."""
+    if req.product_id not in state["rec"].products.index:
+        raise HTTPException(404, "Unknown product")
+    try:
+        result = state["db"].add_feedback(req.product_id, req.helpful, req.request_id)
+    except KeyError as e:
+        raise HTTPException(404, "Unknown request_id (it may predate a database reset)") from e
+    return FeedbackResponse(ok=True, updated=result["updated"])
