@@ -18,6 +18,7 @@ and the gate is written to be honest about that.
 """
 import hashlib
 import json
+import os
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,7 +29,7 @@ import pandas as pd
 from sklearn.metrics import brier_score_loss, roc_auc_score
 
 ROOT = Path(__file__).resolve().parent.parent
-REGISTRY_DIR = ROOT / "models" / "registry"
+REGISTRY_DIR = Path(os.environ.get("COSMETIC_REGISTRY_DIR") or ROOT / "models" / "registry")
 HOLDOUT_MOD, HOLDOUT_REMAINDER = 5, 0          # users with hash(User_id) % 5 == 0 form the gold holdout
 AUC_TOLERANCE, BRIER_TOLERANCE, ECE_TOLERANCE = -0.01, 0.002, 0.01
 
@@ -191,7 +192,9 @@ def prune(keep: int = 5, root: Path = REGISTRY_DIR) -> list[str]:
 def main() -> None:
     import argparse
     ap = argparse.ArgumentParser(description="Inspect and manage the model registry")
-    ap.add_argument("command", choices=["list", "history", "rollback", "prune"])
+    ap.add_argument("command", choices=["list", "history", "promote", "rollback", "prune"])
+    ap.add_argument("version", nargs="?", help="for promote: the version to evaluate and promote")
+    ap.add_argument("--force", action="store_true", help="promote even if the gate rejects it (recorded as forced)")
     args = ap.parse_args()
     if args.command == "list":
         current = champion()
@@ -201,6 +204,13 @@ def main() -> None:
     elif args.command == "history":
         for e in history():
             print(e["at"], e["event"], e.get("version", ""))
+    elif args.command == "promote":
+        if not args.version or args.version not in versions():
+            ap.error(f"give an existing version; known: {versions()}")
+        from .data import load_reviews
+        decision = evaluate_and_promote(args.version, split_gold(load_reviews())[1], force=args.force)
+        print("PROMOTED" if decision["promote"] else "REJECTED", json.dumps(decision.get("checks", {})),
+              "(forced)" if decision.get("forced") else "")
     elif args.command == "rollback":
         print("champion is now", rollback())
     else:

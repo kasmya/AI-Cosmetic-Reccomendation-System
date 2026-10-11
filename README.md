@@ -23,11 +23,27 @@ flowchart LR
   A --> W[Web UI]
 ```
 
+## System architecture
+```mermaid
+flowchart LR
+  UI[Web UI] --> API[FastAPI, N workers]
+  API --> S0[constraints] --> S1[candidate retrieval] --> S2[ranker: calibrated GBM + taste + concerns] --> S3[brand re-rank]
+  API --> DB[(PostgreSQL / SQLite: events, feedback)]
+  DB --> RT[retrain job] --> REG[(model registry: gold-holdout gate, champion, rollback)]
+  REG --> API
+  API --> MET["/metrics"] --> PROM[Prometheus] --> GRAF[Grafana]
+  DB --> DRIFT[drift PSI] --> MET
+```
+Feedback (thumbs up/down) is stored without personal data, can be used to retrain, and a new model only replaces the
+current one if it passes a gate evaluated on users no model has ever trained on. Details, limits and the runbook:
+[docs/OPERATIONS.md](docs/OPERATIONS.md). Measured performance: [docs/LOADTEST.md](docs/LOADTEST.md).
+`docker compose up --build` starts the API, PostgreSQL, Prometheus and Grafana.
+
 ## Feature 1: skincare (ML)
 - **Gradient boosting classifier** (`HistGradientBoostingClassifier`) predicts P(user rates a product 4+ stars) from skin type, tone, category, brand, price, site rating, suitability labels and ingredient embedding.
 - **NLP-style ingredient embeddings:** TF-IDF over ingredient lists, then truncated SVD (LSA). Cosine similarity finds products like ones the user already liked.
 - The two scores are z-scored and blended. **Hard filters** (category, budget, sensitive skin, ingredients to avoid) run first, and every result carries a plain-English reason.
-- Trained, cross-validated and serialized to `models/skincare_model.joblib` with metadata (`python -m cosmetic_rec.train`).
+- Trained as a challenger, registered as a versioned artifact with its metrics (`python -m cosmetic_rec.train`), and promoted to champion only if it passes the registry gate. On the fixed gold holdout (users never trained on) the serving model has AUC 0.592, Brier 0.178, ECE 0.019.
 
 ### Results (`python -m cosmetic_rec.evaluate`)
 **A. Will a user rate it 4+ stars?** 5-fold CV grouped by user. AUC is ranking quality; Brier and ECE measure whether the probabilities can be trusted (lower is better):

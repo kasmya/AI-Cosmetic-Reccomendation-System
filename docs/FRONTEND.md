@@ -15,6 +15,7 @@ Live, typed API reference: run the server and open `/docs`.
 | shade shopping links (new) | `GET /api/v1/makeup/web?kind=lips&shade=coral&undertone=warm&tone=Light` | live when `TAVILY_API_KEY` is set |
 | `res-routine` | `consult` -> `routine`: `am` (cleanse, treat, moisturise, protect) and `pm` steps with `name`, `price`, `spf`, `note`; `clashes` (`severity` info/caution, `slot`, `products`, `message`); `warnings`; `notes` | live |
 | `res-shopping` | `consult` -> `shopping_list`: `products` (each once, with `steps`), `total_price`, `budget`, `within_budget`, `swaps`, `notes`; `items` is the list of Sephora product ids (kept for compatibility) | live |
+| thumbs up/down (new) | `POST /api/v1/feedback` `{product_id, helpful, request_id}` | live |
 | budget input (new) | send `total_budget` in `/consult` | live |
 | find cheaper alternatives (new) | `GET /api/v1/products/{id}/dupes?skin_type=` | live |
 | check my own routine (new) | `POST /api/v1/routine/check` with `{am: [product_uid], pm: [product_uid]}` (uids from `/catalog/search`) | live |
@@ -30,6 +31,7 @@ Live, typed API reference: run the server and open `/docs`.
 - Review summary: themes are `praised` / `criticised` / `typical` relative to other products; quotes are user-written review sentences (escape them).
 - Makeup: `/face/analyze` returns `depth` and `undertone` (an estimate; let the user override and send `undertone` to `/consult`). Palette `hex` values are ready-to-use swatches. `products` are matched by a colour word in the product name, so the list is often short or empty; say that in the UI. Try-on: send the same photo bytes, show the returned JPEG; if `X-Applied` lacks `lips` the mouth was not found.
 - Routine: the sunscreen step has `price: null` and a note, because its source has no prices. If `within_budget` is false, show `notes`; the routine is the cheapest one found. `swaps` is often empty and `notes` says so; do not treat that as an error.
+- Feedback: keep the `request_id` from `/consult`. A thumbs up/down button on each recommended product calls `POST /api/v1/feedback` with `{product_id, helpful, request_id}`. Voting again on the same product replaces the vote. If `request_id` is null the database was unavailable; votes without it are still accepted. `/ops/*` and `/metrics` are for operators, not the UI.
 - Always escape API strings before inserting HTML (the helper `esc` does this).
 - Photo flow: call `/face/analyze` first, then send `skin_hex` and `skin_tone` in `/consult`. The photo itself is never sent to `/consult`.
 - Photo hints: `/face/analyze` returns `hints` (low confidence). Forward them as `photo_hints` to `/skin/assess` or `/consult`; they never raise a concern above `possible` on their own.

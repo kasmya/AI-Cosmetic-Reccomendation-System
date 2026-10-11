@@ -60,7 +60,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - Shopping list: total price, swaps for cheaper similar products (dupe finder using ingredient similarity).
 - Done when: `/consult` returns a routine and shopping list that respects budget and avoid-lists.
 
-## Phase 7: Architecture and operations
+## Phase 7: Architecture and operations (DONE)
 - Two-stage recommender (candidate generation, ranking, re-ranking), model registry with champion/challenger promotion, Postgres, feedback loop, Prometheus/Grafana, drift check, load test, docker-compose.
 
 ## Phase 8: Frontend polish and deploy
@@ -112,3 +112,13 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - **Shopping list:** each distinct product once with the steps that use it, total of priced items, and cheaper swaps (`/products/{id}/dupes`, also in `/consult`): a swap must save at least $3, have ingredient similarity of at least 0.35 and a score within 5 points of the original. Swaps are rare by design: the median Sephora product's closest same-source match has similarity 0.22, and only 66 of 4,095 candidate pairs reach 0.35, so most routines show none (and say so).
 - **Makeup kept out of skincare:** the Sephora data files some makeup under "Treatment" and "Moisturizer" (a concealer, BB creams, primers, bronzing drops). 10 products are now flagged by name and skipped by default; this also fixes the "Treat" step picking a concealer.
 - 124 tests.
+
+## Phase 7 results
+- **Found and fixed first:** CI had failed on every commit since the project began (the bare `pytest` command did not put the repo on the import path; locally `python -m pytest` did). It is now green: lint, tests (including Postgres), model training, and a Docker build and container smoke test.
+- **Database and feedback loop:** SQLAlchemy (SQLite default, PostgreSQL via `DATABASE_URL`, both tested, Postgres 17 for real). `/consult` returns a `request_id`; `POST /api/v1/feedback` stores thumbs up/down tied to it. No personal data. Logging never breaks a recommendation.
+- **Model registry with champion/challenger:** versions, a fixed never-trained-on gold holdout (20% of users), the deployed champion evaluated frozen, a three-part gate (AUC non-inferiority via paired bootstrap over users, Brier, calibration), logged decisions, rollback, prune, and a forced-promotion override. Verified: a harmless retrain is promoted, a crippled model and a poisoned-feedback model are rejected. Honest limit: with about 1,700 holdout reviews and AUC near 0.59 the gate sees gross regressions only, and its decisions flip at the margin.
+- **Two-stage recommender:** constraints, candidate retrieval, ranking, brand re-rank, with a stage trace. Measured: a 100-candidate cut keeps 99.9% of the top 10 (50 loses 16%); a 2-per-brand cap lifts distinct brands in the top 10 from 7.3 to 8.4 for a 1% score cost. Verified identical to the previous ranking except exact ties (now deterministic).
+- **Observability:** Prometheus metrics (bounded label cardinality, multi-process aggregation verified with 4 real workers), PSI drift monitoring with an insufficient-data state, optional `OPS_TOKEN`, a provisioned Grafana dashboard whose metrics are cross-checked against the code.
+- **Load test:** found consultations taking 11 s at the median under 20 users; caching repeated work cut a request from 221 ms to 23 ms and the loaded median to 40 ms. See [LOADTEST.md](LOADTEST.md) (single runs on one machine, not a capacity limit).
+- **Deployment:** non-root Dockerfile with healthcheck, compose stack (API, PostgreSQL, Prometheus, Grafana), CI that validates and builds it. Not brought up end to end locally (no Docker on the dev machine).
+- Runbook and limits: [OPERATIONS.md](OPERATIONS.md). 206 tests.
