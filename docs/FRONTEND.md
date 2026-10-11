@@ -1,6 +1,6 @@
 # Frontend guide
 
-`static/index.html` is a barebones wizard. Restyle it freely; the script binds to element ids, so keep those.
+`frontend/index.html` is a barebones wizard. Restyle it freely; the script binds to element ids, so keep those.
 Live, typed API reference: run the server and open `/docs`.
 
 | UI section (id) | Endpoint | Status |

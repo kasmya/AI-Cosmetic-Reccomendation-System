@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .catalog import build_catalog
@@ -20,7 +21,9 @@ from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_he
 from .websearch import WebSearch, load_dotenv
 
 log = logging.getLogger("cosmetic_rec.api")
-STATIC = Path(__file__).resolve().parent.parent / "static"
+ROOT = Path(__file__).resolve().parent.parent
+# The web UI lives in frontend/ (older checkouts used static/); serve whichever exists.
+FRONTEND = next((d for d in (ROOT / "frontend", ROOT / "static") if (d / "index.html").exists()), ROOT / "frontend")
 MAX_IMAGE_BYTES = 5_000_000
 
 
@@ -66,7 +69,7 @@ def model_info():
 
 @app.get("/", include_in_schema=False)
 def index():
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(FRONTEND / "index.html")
 
 
 # ---------------- feature 1: skincare ----------------
@@ -147,3 +150,8 @@ def makeup_match(hex: str = Query(..., pattern=r"^#?[0-9a-fA-F]{6}$"), k: int = 
 @app.get("/makeup/brands")
 def makeup_brands():
     return state["shades"].brands
+
+
+# Images and other assets for the UI (frontend/public/assets/*), referenced from the page as /assets/<file>.
+if (FRONTEND / "public" / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND / "public" / "assets"), name="assets")

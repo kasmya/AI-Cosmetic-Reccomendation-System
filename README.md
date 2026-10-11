@@ -123,7 +123,7 @@ Pydantic request validation, request-timing middleware (`X-Process-Time-ms`) wit
 ```
 cosmetic_rec/  data.py recommender.py train.py evaluate.py makeup.py vision.py api.py
 data/          skindataall.csv (reviews)   foundation_shades.csv (shades)
-static/        index.html (placeholder UI)
+frontend/      index.html (UI) and public/assets
 tests/         pytest suite
 ```
 

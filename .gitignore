@@ -6,3 +6,4 @@ py_3/
 .venv/
 models/*.joblib
 .env
+.DS_Store

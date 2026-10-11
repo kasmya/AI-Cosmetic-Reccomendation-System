@@ -20,7 +20,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 
 ## Phase 1: Contract and skeleton (DONE in this commit)
 - `/api/v1/*` endpoints with Pydantic schemas (visible at `/docs`). Live where the engine exists, stubbed and flagged `"status": "planned"` elsewhere.
-- Barebones `static/index.html`: a step-by-step wizard wired to those endpoints, with one clearly marked section per feature, ready to restyle.
+- Barebones `frontend/index.html`: a step-by-step wizard wired to those endpoints, with one clearly marked section per feature, ready to restyle.
 - Done when: frontend runs end to end against the API, tests cover the contract.
 
 ## Phase 2: Data sources and ingestion (DONE)
