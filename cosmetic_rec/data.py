@@ -4,7 +4,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-DEFAULT_CSV = Path(__file__).resolve().parent.parent / "skindataall.csv"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DEFAULT_CSV = DATA_DIR / "skindataall.csv"
 SKIN_TYPES = ["Combination", "Dry", "Normal", "Oily"]
 LABELS = SKIN_TYPES + ["Sensitive"]  # product-level "suitable for" flags in the dataset
 

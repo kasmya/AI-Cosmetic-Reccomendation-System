@@ -19,6 +19,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from .data import LABELS, SKIN_TYPES, build_products
 from .vision import tone_index
 
+
+def split_ingredients(text: str) -> list[str]:
+    """Tokenizer for TF-IDF: one token per comma-separated ingredient (module-level so models can be pickled)."""
+    return [t.strip().lower() for t in text.split(",") if t.strip()]
+
+
 DEFAULT_WEIGHTS = {"model": 1.0, "taste": 1.0}
 
 
@@ -73,8 +79,7 @@ class Recommender:
     def fit(self, reviews: pd.DataFrame, products: pd.DataFrame | None = None):
         self.products = (products if products is not None else build_products(reviews)).copy()
         self.vectorizer = TfidfVectorizer(
-            tokenizer=lambda s: [t.strip().lower() for t in s.split(",") if t.strip()],
-            token_pattern=None, lowercase=False)
+            tokenizer=split_ingredients, token_pattern=None, lowercase=False)
         tfidf = self.vectorizer.fit_transform(self.products["Ingredients"])
         svd = TruncatedSVD(self.svd_dim, random_state=self.seed)
         self.embed = svd.fit_transform(tfidf)

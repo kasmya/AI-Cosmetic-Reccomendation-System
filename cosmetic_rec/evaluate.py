@@ -30,7 +30,8 @@ def classifier_cv(reviews, seed=0):
     site = base.pfeat.loc[reviews["Product_id"], "site_rating"].to_numpy()
     models = {
         "baseline: site rating": None,
-        "logistic regression": make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), LogisticRegression(C=0.1, max_iter=2000)),
+        "logistic regression": make_pipeline(SimpleImputer(strategy="median"), StandardScaler(),
+                                          LogisticRegression(C=0.1, max_iter=2000)),
         "neural net (MLP)": make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), MLPClassifier(
             (64, 32), alpha=0.1, early_stopping=True, max_iter=300, random_state=seed)),
         "gradient boosting (used)": base.clf,
@@ -58,7 +59,7 @@ def split_leave_one_out(reviews, seed=0):
 
 def _metrics(ranked_lists, targets, k=10):
     hit, ndcg = [], []
-    for ranked, t in zip(ranked_lists, targets):
+    for ranked, t in zip(ranked_lists, targets, strict=True):
         pos = np.where(ranked == t)[0]
         r = pos[0] + 1 if len(pos) else None
         hit.append(float(bool(r and r <= k)))

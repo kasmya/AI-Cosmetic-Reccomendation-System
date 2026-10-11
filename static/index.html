@@ -1,114 +1,44 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Skinwise</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@300;400&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#fcfcfb;--ink:#1c1917;--mut:#8a817b;--line:#e9e5e1;--terra:#c4654a;--terra-d:#b25a41}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:300 15px/1.6 Inter,system-ui,sans-serif}
-.serif{font-family:"Cormorant Garamond",Georgia,serif;font-weight:300;text-transform:uppercase}
-nav{display:flex;justify-content:space-between;align-items:center;max-width:1000px;margin:0 auto;padding:24px 20px}
-nav .brand{letter-spacing:.3em;font-size:13px}
-.btn{background:var(--ink);color:#fff;border:0;padding:8px 18px;font:400 11px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;text-decoration:none}
-.btn:hover{background:var(--terra)}
-/* hero */
-.hero{position:relative;max-width:1000px;margin:0 auto;padding:40px 20px 0;text-align:center}
-.arch{width:min(280px,60vw);height:min(330px,70vw);margin:0 auto;border-radius:999px 999px 0 0;
- background:repeating-linear-gradient(115deg,#a94f37 0 6px,#cf7658 6px 14px,#b85d43 14px 22px);position:relative;overflow:hidden}
-.arch::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 20% 0,rgba(255,255,255,.28),transparent 60%)}
-.wordmark{font-size:clamp(64px,17vw,210px);line-height:1;color:var(--terra);margin:0;position:absolute;left:0;right:0;top:14%;letter-spacing:.02em}
-.lede{font-size:clamp(22px,3.4vw,38px);line-height:1.25;max-width:620px;margin:56px auto 0;color:var(--ink)}
-.lede em{color:var(--terra);font-style:normal}
-/* form */
-section{max-width:1000px;margin:0 auto;padding:80px 20px}
-h2{font-size:clamp(28px,4vw,44px);margin:0 0 8px;text-align:center}
-h2 em{color:var(--terra);font-style:normal}
-.sub{text-align:center;color:var(--mut);margin:0 0 40px;font-size:13px}
-form{display:grid;gap:22px;max-width:620px;margin:0 auto}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:22px}
-label{display:grid;gap:2px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
-select,input{font:300 15px Inter,sans-serif;color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--line);padding:8px 0;border-radius:0;letter-spacing:0;text-transform:none}
-select:focus,input:focus{outline:0;border-color:var(--terra)}
-input[type=file]{border:0;padding:6px 0;font-size:13px}
-.check{display:flex;gap:10px;align-items:center;letter-spacing:.06em;text-transform:none;font-size:14px;color:var(--ink)}
-.check input{width:auto;accent-color:var(--terra)}
-form .btn{justify-self:center;margin-top:10px;padding:12px 34px}
-#tone{font-size:12px;color:var(--terra);min-height:1em;text-transform:none;letter-spacing:0}
-/* results band */
-#results{background:var(--terra);color:#fff;max-width:none;padding:70px 20px 80px;display:none}
-#results h2{color:#fff}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;max-width:1000px;margin:36px auto 0}
-.card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);padding:20px;display:flex;flex-direction:column;gap:6px}
-.card .rank{font:300 13px "Cormorant Garamond",serif;letter-spacing:.2em;opacity:.8}
-.card h3{font:400 22px/1.15 "Cormorant Garamond",Georgia,serif;margin:0}
-.card .meta{font-size:12px;opacity:.85;letter-spacing:.06em}
-.card .why{font-size:12px;opacity:.8;margin-top:auto;padding-top:8px;border-top:1px solid rgba(255,255,255,.25)}
-.msg{text-align:center;opacity:.9;margin-top:30px}
-footer{text-align:center;color:var(--mut);font-size:12px;padding:30px 20px 50px}
-@media(max-width:560px){.row{grid-template-columns:1fr}}
-</style></head><body>
-<nav><span style="width:22px"></span><span class="brand serif">Skinwise</span><a class="btn" href="#find">Get started</a></nav>
+<title>Cosmetic Recommender (placeholder UI)</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px}
+fieldset{margin:20px 0}label{display:block;margin:6px 0}pre{background:#f4f4f4;padding:10px;overflow:auto}
+.sw{display:inline-block;width:18px;height:18px;vertical-align:middle;border:1px solid #888;margin-right:6px}</style></head><body>
+<h1>Cosmetic Recommender</h1><p><em>Placeholder UI. Styling comes later.</em></p>
 
-<header class="hero">
-  <div class="arch"></div>
-  <h1 class="wordmark serif">Skinwise</h1>
-  <p class="lede serif">A smarter way to choose <em>skincare</em>, built from real reviews</p>
-</header>
+<fieldset><legend><b>1. Skincare (ML model)</b></legend>
+<label>Skin type <select id="skin"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
+<label>Category <select id="cat"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
+<label>Max price <input id="price" type="number" min="0"></label>
+<label>Avoid ingredients <input id="avoid" placeholder="fragrance, alcohol"></label>
+<label>A product you liked <input id="liked" list="products"></label><datalist id="products"></datalist>
+<label><input id="sens" type="checkbox"> Sensitive skin</label>
+<button id="go1">Recommend</button><div id="out1"></div></fieldset>
 
-<section id="find">
-  <h2 class="serif">Find your <em>match</em></h2>
-  <p class="sub">Tell us a little. Add a photo if you like, and we'll estimate your tone.</p>
-  <form id="f">
-    <div class="row">
-      <label>Skin type<select id="skin"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
-      <label>Category<select id="cat"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
-    </div>
-    <div class="row">
-      <label>Max price ($)<input id="price" type="number" min="0" placeholder="No limit"></label>
-      <label>Avoid ingredients<input id="avoid" placeholder="fragrance, alcohol"></label>
-    </div>
-    <label>A product you liked (optional)<input id="liked" list="products" placeholder="Start typing a name"></label>
-    <datalist id="products"></datalist>
-    <label>Photo for tone (optional, never stored)<input id="photo" type="file" accept="image/*"></label>
-    <div id="tone" aria-live="polite"></div>
-    <label class="check"><input id="sens" type="checkbox"> Sensitive skin</label>
-    <button class="btn">Recommend</button>
-  </form>
-</section>
-
-<section id="results" aria-live="polite">
-  <h2 class="serif">Your <span style="opacity:.75">picks</span></h2>
-  <div id="out" class="grid"></div>
-</section>
-<footer>Trained on 8.6k real reviews · estimates, not medical advice</footer>
+<fieldset><legend><b>2. Makeup foundation match (OpenCV)</b></legend>
+<label>Face photo <input id="photo" type="file" accept="image/*"></label>
+<label>Brand (optional) <select id="brand"><option value="">Any</option></select></label>
+<button id="go2">Find my shade</button><div id="out2"></div></fieldset>
 
 <script>
-const $=id=>document.getElementById(id),ids={};let tone=null;
-fetch('/products?limit=400').then(r=>r.json()).then(ps=>ps.forEach(p=>{
-  const label=`${p.Product} (${p.Brand})`;ids[label]=p.Product_id;
-  const o=document.createElement('option');o.value=label;$('products').append(o)}));
-$('photo').onchange=async()=>{const f=$('photo').files[0];tone=null;$('tone').textContent='';if(!f)return;
-  $('tone').textContent='Analysing…';
-  try{const r=await fetch('/analyze-photo',{method:'POST',body:f});const j=await r.json();
-    if(!r.ok)throw new Error(j.detail||r.status);tone=j.tone;
-    $('tone').textContent=`Estimated tone: ${j.tone} (approximate, depends on lighting)`}
-  catch(e){$('tone').textContent=e.message}};
-function card(p,i){const c=document.createElement('div');c.className='card';
-  const add=(cls,t,tag='div')=>{const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=t;c.append(e)};
-  add('rank',String(i+1).padStart(2,'0'));add('',p.Product,'h3');
-  add('meta',`${p.Brand} · ${p.Category} · $${p.Price}`);add('why',p.why);return c}
-$('f').onsubmit=async e=>{e.preventDefault();const out=$('out'),res=$('results');
-  const liked=ids[$('liked').value];
-  const body={skin_type:$('skin').value||null,skin_tone:tone,category:$('cat').value||null,
-    max_price:$('price').value?+$('price').value:null,sensitive:$('sens').checked,
-    avoid_ingredients:$('avoid').value.split(',').map(s=>s.trim()).filter(Boolean),
-    liked_product_ids:liked?[liked]:[],k:8};
-  res.style.display='block';out.innerHTML='<p class="msg">Finding your matches…</p>';
-  try{const r=await fetch('/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error(r.status);const j=await r.json();out.innerHTML='';
-    if(!j.count){out.innerHTML='<p class="msg">No products match those filters.</p>';return}
-    j.results.forEach((p,i)=>out.append(card(p,i)));res.scrollIntoView({behavior:'smooth'})
-  }catch(err){out.innerHTML='<p class="msg">Something went wrong ('+err.message+')</p>'}};
+const $=id=>document.getElementById(id),ids={};
+const show=(el,x)=>el.innerHTML=x;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+fetch('/skincare/products?limit=400').then(r=>r.json()).then(ps=>ps.forEach(p=>{const l=`${p.Product} (${p.Brand})`;ids[l]=p.Product_id;
+ const o=document.createElement('option');o.value=l;$('products').append(o)}));
+fetch('/makeup/brands').then(r=>r.json()).then(bs=>bs.forEach(b=>{const o=document.createElement('option');o.textContent=b;$('brand').append(o)}));
+$('go1').onclick=async()=>{const liked=ids[$('liked').value];
+ const body={skin_type:$('skin').value||null,category:$('cat').value||null,max_price:$('price').value?+$('price').value:null,
+  sensitive:$('sens').checked,avoid_ingredients:$('avoid').value.split(',').map(s=>s.trim()).filter(Boolean),liked_product_ids:liked?[liked]:[],k:8};
+ show($('out1'),'Loading...');
+ const r=await fetch('/skincare/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+ if(!r.ok)return show($('out1'),'Error '+r.status);
+ const j=await r.json();
+ show($('out1'),j.count?'<ol>'+j.results.map(p=>`<li><b>${esc(p.Product)}</b> (${esc(p.Brand)}, ${esc(p.Category)}, $${p.Price})<br><small>${esc(p.why)}</small></li>`).join('')+'</ol>':'No matches.')};
+$('go2').onclick=async()=>{const f=$('photo').files[0];if(!f)return show($('out2'),'Choose a photo first.');
+ show($('out2'),'Analysing...');
+ const r=await fetch('/makeup/match-photo?k=6'+($('brand').value?'&brand='+encodeURIComponent($('brand').value):''),{method:'POST',body:f});
+ const j=await r.json();if(!r.ok)return show($('out2'),esc(j.detail||r.status));
+ show($('out2'),`<p>Skin colour <span class="sw" style="background:${esc(j.face.skin_hex)}"></span>${esc(j.face.skin_hex)}, tone: <b>${esc(j.face.tone)}</b></p><ol>`+
+  j.matches.map(m=>`<li><span class="sw" style="background:${esc(m.hex)}"></span><b>${esc(m.brand)} ${esc(m.product)}</b> ${esc(m.hex)} <small>(colour difference ${m.delta_e})</small></li>`).join('')+'</ol>')};
 </script></body></html>
