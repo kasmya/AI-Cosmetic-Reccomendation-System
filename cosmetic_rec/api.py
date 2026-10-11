@@ -180,6 +180,9 @@ def makeup_brands():
     return state["shades"].brands
 
 
-# Images and other assets for the UI (frontend/public/assets/*), referenced from the page as /assets/<file>.
-if (FRONTEND / "public" / "assets").is_dir():
-    app.mount("/assets", StaticFiles(directory=FRONTEND / "public" / "assets"), name="assets")
+# Images and other assets for the UI: frontend/assets/<file>, referenced from the page as assets/<file> (served at
+# /assets/<file>). The older frontend/public/assets location is still served if it exists.
+for _assets in (FRONTEND / "assets", FRONTEND / "public" / "assets"):
+    if _assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=_assets), name="assets")
+        break

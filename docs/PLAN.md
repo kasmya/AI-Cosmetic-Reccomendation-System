@@ -63,7 +63,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 ## Phase 7: Architecture and operations (DONE)
 - Two-stage recommender (candidate generation, ranking, re-ranking), model registry with champion/challenger promotion, Postgres, feedback loop, Prometheus/Grafana, drift check, load test, docker-compose.
 
-## Phase 8: Frontend polish and deploy
+## Phase 8: Frontend polish and deploy (frontend DONE; public deploy pending)
 - Restyle (terracotta editorial design), accessibility, mobile, deploy to a public URL.
 
 ## Decisions needed from you
@@ -122,3 +122,10 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - **Load test:** found consultations taking 11 s at the median under 20 users; caching repeated work cut a request from 221 ms to 23 ms and the loaded median to 40 ms. See [LOADTEST.md](LOADTEST.md) (single runs on one machine, not a capacity limit).
 - **Deployment:** non-root Dockerfile with healthcheck, compose stack (API, PostgreSQL, Prometheus, Grafana), CI that validates and builds it. Not brought up end to end locally (no Docker on the dev machine).
 - Runbook and limits: [OPERATIONS.md](OPERATIONS.md). 206 tests.
+
+## Phase 8 progress: the page is linked to the backend
+- The designed page was wired to every live endpoint: a new skin-quiz step, photo hints, colour studio with palettes and "shop this shade", try-on, a product drawer (score breakdown, review summary, dupes, web results, feedback), a routine checker and the catalogue, all on one page. See [FRONTEND.md](FRONTEND.md).
+- It had been written against guessed response shapes. Found and fixed: the try-on called a non-existent URL with the wrong parameter names; the shopping list, review summary, score breakdown and lip/blush/eye swatches read fields that do not exist; an "olive" undertone the API rejects; a score shown on a card that differed from the drawer (the tone was not sent); and a fallback layer that fabricated products, scores, skin analysis and try-ons whenever a call failed (removed).
+- A pre-existing bug hid the hero and studio images from every visitor (clip-path reveal never fired); fixed. Images moved to `frontend/assets/` with relative paths.
+- `tests/test_frontend.py` keeps page and API in step (14 checks; they fail on the previous version of the page). 220 tests overall.
+- Not done: a public deployment, and cross-browser testing beyond Chromium.
