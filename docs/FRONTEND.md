@@ -10,7 +10,9 @@ Live, typed API reference: run the server and open `/docs`.
 | `step-photo` | `POST /api/v1/face/analyze` (raw image bytes as body) | live |
 | `res-profile` | `POST /api/v1/consult` -> `profile` (skin type, concerns with level, reasons, helpful and watch ingredients, tip) | live |
 | `res-skincare` | `consult` -> `skincare` (by category, with AICosmetic score, verdict, per-component points, confidence) | live |
-| `res-makeup` | `consult` -> `makeup` (foundation live; lips, blush, eyes planned) | partly live |
+| `res-makeup` | `consult` -> `makeup`: `depth`, `undertone`, `foundation.items` (real shades), and for `lips` / `blush` / `eyes`: `palette` (name, hex, intensity, why) and `products` (name-matched catalog items) | live |
+| makeup try-on (new) | `POST /api/v1/makeup/tryon?foundation_hex=&lips_hex=&blush_hex=&strength=` (raw image bytes in, `image/jpeg` out, header `X-Applied`) | live |
+| shade shopping links (new) | `GET /api/v1/makeup/web?kind=lips&shade=coral&undertone=warm&tone=Light` | live when `TAVILY_API_KEY` is set |
 | `res-routine` | `consult` -> `routine` | provisional |
 | `res-shopping` | `consult` -> `shopping_list` | provisional |
 | `res-skincare` alternatives | `consult` -> `skincare[cat][i].alternatives` (similar products from other sources) | live |
@@ -23,6 +25,7 @@ Live, typed API reference: run the server and open `/docs`.
 - Response shapes will not change as backend phases land; planned fields just start getting filled.
 - Score: `breakdown.points` are the points each component contributed (they sum, minus `penalty`, to `aicosmetic_score`); `breakdown.weights` and `review_basis` explain how. Scores cluster around 75, so show the `verdict` and the breakdown rather than only the number.
 - Review summary: themes are `praised` / `criticised` / `typical` relative to other products; quotes are user-written review sentences (escape them).
+- Makeup: `/face/analyze` returns `depth` and `undertone` (an estimate; let the user override and send `undertone` to `/consult`). Palette `hex` values are ready-to-use swatches. `products` are matched by a colour word in the product name, so the list is often short or empty; say that in the UI. Try-on: send the same photo bytes, show the returned JPEG; if `X-Applied` lacks `lips` the mouth was not found.
 - Always escape API strings before inserting HTML (the helper `esc` does this).
 - Photo flow: call `/face/analyze` first, then send `skin_hex` and `skin_tone` in `/consult`. The photo itself is never sent to `/consult`.
 - Photo hints: `/face/analyze` returns `hints` (low confidence). Forward them as `photo_hints` to `/skin/assess` or `/consult`; they never raise a concern above `possible` on their own.

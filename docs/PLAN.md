@@ -48,7 +48,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - Verdict bands: Recommended / Okay / Caution, each with the reasons.
 - Done when: every product returns a score with breakdown, and a test shows the score changes sensibly with inputs.
 
-## Phase 5: Makeup engine
+## Phase 5: Makeup engine (backend DONE; UI pending)
 - Foundation: live (OpenCV skin colour + k-NN). Add undertone (warm/cool/neutral) from Lab hue.
 - Colour harmony for lips, blush, eyes from tone + undertone + the user's colour preferences (for example warm, nude, berry, bold) as rule-based palettes with hex swatches.
 - Product matches for those categories once Phase 2 supplies shade data.
@@ -95,3 +95,11 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - **AICosmetic score** (`score.py`, formula in the module docstring and in `/products/{id}/score`): 0-100 from the calibrated model probability, the smoothed positive-review share (skin-matched when at least 3 reviewers share the skin type) and, with concerns, ingredient fit, minus a penalty for aggravating ingredients. Verdict bands Recommended 80+, Okay 70+, otherwise Caution, which split this catalog into roughly the top 20%, middle 60% and bottom 20%. Every response carries the points each component contributed and a confidence level from the review count.
 - **Does the score predict held-out reviews?** ROC-AUC 0.599, essentially equal to its parts (model 0.600, reviews 0.595) and to the site rating (0.591). Predicting one person's rating from the product alone looks capped near 0.6 in this data. The score's value is that it is calibrated, personalised and explainable, not that it is more predictive. Skin-matched review shares did not beat overall shares (0.592 vs 0.595, within noise).
 - Training now also fits and saves the review model (about 11 s). 73 tests.
+
+## Phase 5 results (backend)
+- **Depth and undertone** (`makeup_look.py`): depth (light / medium / deep) from CIELAB lightness; undertone (warm / neutral / cool) from the Lab hue angle, judged against the 621 real shades of similar depth. This matters: in that data hue and lightness correlate at 0.55, so one global cut-off would call deep skin "cool" and light skin "warm" for no real reason. `/face/analyze` now returns `depth`, `undertone` and `undertone_basis`; `/consult` accepts an `undertone` override.
+- **Palettes for lips, blush and eyes:** hand-written colour-theory rules (undertone fit, preference tags, intensity), with hex swatches adapted to depth, and a reason on every shade. Your colour preferences (warm, cool, neutral, nude, pink, coral, berry, bold, natural) change the ranking; if a preference conflicts with the measured undertone, the reason says so. There is no ground truth for "what suits you", so this is rules, not a learned or validated model.
+- **Product matches:** Open Beauty Facts lipsticks, blushes and eyeshadows whose NAME contains a colour word matching the palette (multilingual). Coverage is small (about half of lipsticks and blushes have a colour word, 3 of 16 eyeshadows), labelled `basis: colour word in product name`. A test caught a bug where the French word for gold matched the end of "Color", tagging every "Color Riche" product as gold.
+- **Virtual try-on** (`tryon.py`, `POST /api/v1/makeup/tryon`): foundation, lips and blush recoloured in Lab so shading and texture survive. Only changed pixels are rewritten. Lips are found as the reddish blob in the mouth area, cheeks are fixed ellipses (no facial-landmark model), so it needs a front-facing photo and reports what it applied in `X-Applied`. Foundation changes the face only, not the neck. No eyeshadow (needs eyelid landmarks).
+- **Live shopping search** (`GET /api/v1/makeup/web`): Tavily results for a suggested shade, same optional key as before.
+- 92 tests.

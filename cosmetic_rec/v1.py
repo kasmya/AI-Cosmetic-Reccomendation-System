@@ -8,16 +8,19 @@ See docs/PLAN.md for the phase each planned section lands in.
 """
 from typing import Annotated, Literal
 
+import cv2
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Path, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from . import concerns as cx
+from . import makeup_look as ml
 from .concerns import CONCERNS
 from .data import SKIN_TYPES
 from .recommender import UserProfile
 from .score import combine, confidence, review_component
 from .state import state
+from .tryon import apply_look
 from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_hex_to_lab
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
@@ -35,10 +38,14 @@ class Options(BaseModel):
     tones: list[str]
     skincare_categories: list[str]
     makeup_brands: list[str]
+    undertones: list[str] = []
 
 
 class FaceResult(BaseModel):
     hints: dict | None = None      # low-confidence photo hints (redness, shine, blemishes); forward to /skin/assess
+    depth: str | None = None       # light / medium / deep
+    undertone: str | None = None   # warm / neutral / cool (estimate, judged against shades of similar depth)
+    undertone_basis: str = ""
     tone: str
     ita: float
     skin_hex: str
@@ -85,6 +92,7 @@ class ConsultRequest(BaseModel):
     answers: dict[str, str] = Field({}, description="Questionnaire answers, see GET /skin/questionnaire")
     photo_hints: dict | None = None
     colour_preferences: list[str] = []
+    undertone: str | None = Field(None, description="warm / neutral / cool; overrides the measured undertone")
     sensitive: bool = False
     max_price_per_item: float | None = Field(None, ge=0)
     avoid_ingredients: list[str] = []
@@ -139,13 +147,36 @@ class ShadeItem(BaseModel):
     delta_e: float
 
 
+class PaletteItem(BaseModel):
+    name: str
+    hex: str
+    score: float
+    intensity: Literal["soft", "medium", "bold"]
+    why: str
+
+
+class ProductMatch(BaseModel):
+    product_uid: str
+    name: str
+    brand: str
+    source: str
+    url: str | None
+    matched_on: list[str]
+    basis: str
+
+
 class MakeupSection(BaseModel):
     status: Status
-    items: list[ShadeItem] = []
+    items: list[ShadeItem] = []                 # foundation: closest real shades
+    palette: list[PaletteItem] = []             # lips / blush / eyes: colour-harmony shades
+    products: list[ProductMatch] = []           # lips / blush / eyes: catalog products matched by name colour word
     note: str = ""
 
 
 class MakeupLook(BaseModel):
+    depth: str | None = None
+    undertone: str | None = None
+    undertone_basis: str = ""
     skin_hex: str | None
     tone: str | None
     foundation: MakeupSection
@@ -233,7 +264,7 @@ def _verdict(score: int) -> str:
     return "Recommended" if score >= 80 else "Okay" if score >= 60 else "Caution"
 
 
-def _check_inputs(skin_type, concerns, prefs=(), tone=None):
+def _check_inputs(skin_type, concerns, prefs=(), tone=None, undertone=None):
     if skin_type is not None and skin_type not in SKIN_TYPES:
         raise HTTPException(422, f"skin_type must be one of {SKIN_TYPES}")
     for c in concerns:
@@ -244,6 +275,8 @@ def _check_inputs(skin_type, concerns, prefs=(), tone=None):
             raise HTTPException(422, f"unknown colour preference '{p}', use {COLOUR_PREFS}")
     if tone is not None and tone not in TONES:
         raise HTTPException(422, f"skin_tone must be one of {TONES}")
+    if undertone is not None and undertone not in ml.UNDERTONES:
+        raise HTTPException(422, f"undertone must be one of {ml.UNDERTONES}")
 
 
 def _assess(skin_type, selected, answers=None, photo_hints=None) -> AssessResponse:
@@ -300,7 +333,7 @@ def options():
     """Everything the frontend needs to build its form controls."""
     return Options(skin_types=SKIN_TYPES, concerns=CONCERNS, colour_preferences=COLOUR_PREFS, tones=TONES,
                    skincare_categories=sorted(state["rec"].products["Category"].unique()),
-                   makeup_brands=state["shades"].brands)
+                   makeup_brands=state["shades"].brands, undertones=ml.UNDERTONES)
 
 
 @router.post("/face/analyze", response_model=FaceResult)
@@ -310,11 +343,14 @@ async def face_analyze(request: Request):
     if not data or len(data) > 5_000_000:
         raise HTTPException(413, "Send an image under 5 MB as the request body")
     try:
-        return estimate_skin_tone(decode_image(data))
+        result = estimate_skin_tone(decode_image(data))
     except NoFaceError as e:
         raise HTTPException(422, str(e)) from e
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+    profile = state["profiler"].profile(result["lab"])
+    return {**result, "depth": profile.depth, "undertone": profile.undertone,
+            "undertone_basis": profile.undertone_basis}
 
 
 @router.get("/skin/questionnaire", response_model=list[Question])
@@ -353,6 +389,32 @@ def _foundation(skin_hex: str | None) -> MakeupSection:
     return MakeupSection(status="live", items=items)
 
 
+def _palette_section(kind: str, profile: ml.SkinProfile, prefs: list[str]) -> MakeupSection:
+    palette = ml.suggest(kind, profile, prefs)
+    products = ml.match_products(kind, palette, state["catalog"].df)
+    note = "Rule-based colour-harmony palette (no learned model). "
+    note += ("Products are matched by a colour word in their name, so coverage is small."
+             if products else "No catalog product has a matching colour word in its name.")
+    return MakeupSection(status="live", palette=[PaletteItem(**{k: v for k, v in p.items() if k != "families"})
+                                                 for p in palette],
+                         products=[ProductMatch(**m) for m in products], note=note)
+
+
+def _makeup(req) -> MakeupLook:
+    profiler = state["profiler"]
+    profile = None
+    if req.skin_hex:
+        profile = profiler.profile(rgb_hex_to_lab(req.skin_hex), req.undertone)
+    elif req.skin_tone:
+        profile = profiler.from_tone_label(req.skin_tone, req.undertone)
+    waiting = MakeupSection(status="planned", note="Upload a photo or choose a skin tone to get colour suggestions.")
+    sections = {k: _palette_section(k, profile, req.colour_preferences) if profile else waiting
+                for k in ("lips", "blush", "eyes")}
+    return MakeupLook(depth=profile.depth if profile else None, undertone=profile.undertone if profile else None,
+                      undertone_basis=profile.undertone_basis if profile else "", skin_hex=req.skin_hex,
+                      tone=req.skin_tone, foundation=_foundation(req.skin_hex), **sections)
+
+
 def _routine(skincare: dict[str, list[SkincareItem]]) -> Routine:
     def step(label: str, category: str) -> RoutineStep:
         top = skincare[category][0] if skincare.get(category) else None
@@ -366,7 +428,7 @@ def _routine(skincare: dict[str, list[SkincareItem]]) -> Routine:
 @router.post("/consult", response_model=ConsultResponse)
 def consult(req: ConsultRequest):
     """One call that returns the whole consultation. Sections not built yet say status='planned'."""
-    _check_inputs(req.skin_type, req.concerns, req.colour_preferences, req.skin_tone)
+    _check_inputs(req.skin_type, req.concerns, req.colour_preferences, req.skin_tone, req.undertone)
     rec = state["rec"]
     profile_result = _assess(req.skin_type, req.concerns, req.answers, req.photo_hints)
     skin_type = profile_result.skin_type
@@ -381,9 +443,7 @@ def consult(req: ConsultRequest):
         out = rec.recommend(profile, k=req.per_category).reset_index()
         skincare[category] = [_skincare_item(r, skin_type, active_concerns) for r in out.itertuples()]
 
-    planned = MakeupSection(status="planned", note="Colour-harmony palettes land in Phase 5.")
-    makeup = MakeupLook(skin_hex=req.skin_hex, tone=req.skin_tone, foundation=_foundation(req.skin_hex),
-                        lips=planned, blush=planned, eyes=planned)
+    makeup = _makeup(req)
     picks = [items[0] for items in skincare.values() if items]
     shopping = {"status": "provisional", "items": [i.product_id for i in picks],
                 "total_price": round(sum(i.price for i in picks), 2)}
@@ -476,6 +536,52 @@ def product_web(product_id: int = Path(..., ge=0)):
         raise HTTPException(404, "Unknown product")
     r = products.loc[product_id]
     query = f"{r['Brand']} {r['Product']} skincare product review"
+    web = state["web"]
+    if not web.enabled:
+        return WebSearchResponse(status="disabled", query=query, note="Set TAVILY_API_KEY to enable live web search.")
+    try:
+        found = web.search(query)
+    except RuntimeError as e:
+        return WebSearchResponse(status="error", query=query, note=str(e))
+    return WebSearchResponse(status="live", query=query, results=[WebResult(**x) for x in found],
+                             note="Third-party web content, shown as-is. Not used by the models.")
+
+
+HEX = r"^#?[0-9a-fA-F]{6}$"
+
+
+@router.post("/makeup/tryon", responses={200: {"content": {"image/jpeg": {}}}})
+async def makeup_tryon(request: Request,
+                       foundation_hex: str | None = Query(None, pattern=HEX),
+                       lips_hex: str | None = Query(None, pattern=HEX),
+                       blush_hex: str | None = Query(None, pattern=HEX),
+                       strength: float = Query(0.8, ge=0.2, le=1.0)):
+    """Virtual try-on: raw image bytes in, a JPEG out with the chosen colours applied (never stored).
+    `X-Applied` lists what could be applied (lips are skipped if no mouth is found). No eyeshadow."""
+    if not (foundation_hex or lips_hex or blush_hex):
+        raise HTTPException(422, "Give at least one of foundation_hex, lips_hex, blush_hex")
+    data = await request.body()
+    if not data or len(data) > 5_000_000:
+        raise HTTPException(413, "Send an image under 5 MB as the request body")
+    try:
+        img, applied, _ = apply_look(decode_image(data), foundation_hex, lips_hex, blush_hex, strength)
+    except NoFaceError as e:
+        raise HTTPException(422, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    ok, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    return Response(content=jpg.tobytes(), media_type="image/jpeg", headers={"X-Applied": ",".join(applied)})
+
+
+@router.get("/makeup/web", response_model=WebSearchResponse)
+def makeup_web(kind: Literal["lips", "blush", "eyes", "foundation"],
+               shade: str = Query("", max_length=30, pattern=r"^[A-Za-z ]*$"),
+               undertone: str | None = None, tone: str | None = None):
+    """Live web results for real products in a suggested shade (needs TAVILY_API_KEY)."""
+    _check_inputs(None, [], tone=tone, undertone=undertone)
+    noun = {"lips": "lipstick", "blush": "blush", "eyes": "eyeshadow", "foundation": "foundation"}[kind]
+    query = " ".join(x for x in (f"best {shade.strip()} {noun}", f"for {undertone} undertone" if undertone else "",
+                                 f"{tone} skin tone" if tone else "") if x)
     web = state["web"]
     if not web.enabled:
         return WebSearchResponse(status="disabled", query=query, note="Set TAVILY_API_KEY to enable live web search.")

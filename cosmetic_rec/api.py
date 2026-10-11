@@ -13,6 +13,7 @@ from .catalog import build_catalog
 from .catalog_index import CatalogIndex
 from .data import SKIN_TYPES
 from .makeup import ShadeMatcher
+from .makeup_look import SkinProfiler
 from .recommender import UserProfile
 from .state import state
 from .train import load_all
@@ -32,6 +33,7 @@ async def lifespan(app):
     blob = load_all()
     state["rec"], state["intel"], state["meta"] = blob["model"], blob["intel"], blob["meta"]
     state["shades"] = ShadeMatcher()
+    state["profiler"] = SkinProfiler(state["shades"].lab)
     state["catalog"] = CatalogIndex(build_catalog())
     load_dotenv()
     state["web"] = WebSearch()

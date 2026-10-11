@@ -79,6 +79,9 @@ flowchart LR
 
 **Limits:** it reads colour from pixels, so lighting and camera white balance matter; a swatch colour on a screen is not the same as foundation on skin. Checked on one portrait plus synthetic brightness changes, not a labelled, diverse test set. Treat results as a shortlist. Photos are processed in memory and never stored.
 
+## Makeup look and virtual try-on
+Foundation is matched to real shades (k-NN in Lab). Lips, blush and eye colours come from colour-theory rules: depth and undertone are read from your photo (undertone judged against shades of similar depth, because lighter skin is naturally more yellow), your colour preferences re-rank the palette, and every shade carries its reason. A try-on recolours foundation, lips and cheeks on your photo with OpenCV (Lab colour space, so shading survives). Colour suggestions are rules with no ground truth, product matches use colour words in product names (small coverage), and the try-on has no facial-landmark model, so it needs a front-facing photo.
+
 ## Reviews and the AICosmetic score
 Each product gets review themes (hydration, breakouts, irritation, scent, texture, results, gentleness, value, packaging), judged as praised, criticised or typical relative to other products, plus pros, cons and short representative quotes. The **AICosmetic score** (0-100) blends the model's calibrated probability, the smoothed positive-review share (matched to your skin type when enough reviewers share it) and, if you have concerns, ingredient fit, minus a penalty for ingredients often reported as aggravating. Every response shows the points each part contributed. Verdicts (Recommended 80+, Okay 70+, Caution) are relative to this catalog. Formula: [cosmetic_rec/score.py](cosmetic_rec/score.py).
 
