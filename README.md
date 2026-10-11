@@ -61,6 +61,9 @@ flowchart LR
 
 **Limits:** it reads colour from pixels, so lighting and camera white balance matter; a swatch colour on a screen is not the same as foundation on skin. Checked on one portrait plus synthetic brightness changes, not a labelled, diverse test set. Treat results as a shortlist. Photos are processed in memory and never stored.
 
+## Skin concern assessment
+An 8-question quiz (plus selected concerns and optional photo hints) scores concerns such as acne, dryness, redness and dark spots, each with the reasons behind it, helpful ingredients, ingredients to watch and a tip. Concerns re-rank skincare results by ingredient fit. It is rule-based and **not a diagnosis**; the ingredient table is general guidance, not validated against outcomes. Photo hints (redness, shine, blemishes) are low confidence and were only checked on synthetic patches.
+
 ## Roadmap
 See [docs/PLAN.md](docs/PLAN.md) for the phased plan (data sources, concern assessment, review summaries and score, makeup palettes, routine builder, architecture) and [docs/FRONTEND.md](docs/FRONTEND.md) for the frontend contract.
 

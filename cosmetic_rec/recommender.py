@@ -16,6 +16,7 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+from .concerns import helpful_hits, watch_hits
 from .data import LABELS, SKIN_TYPES, build_products
 from .vision import tone_index
 
@@ -25,7 +26,10 @@ def split_ingredients(text: str) -> list[str]:
     return [t.strip().lower() for t in text.split(",") if t.strip()]
 
 
-DEFAULT_WEIGHTS = {"model": 1.0, "taste": 1.0}
+# concern: z-scored share of helpful ingredients present
+# watch: flat penalty for ingredients often reported as aggravating. 2.5 because ~59% of products contain one for
+# sensitivity (mostly fragrance); at 0.7 the top 10 was unchanged, at 2.5 it drops from 6/10 flagged to 1/10
+DEFAULT_WEIGHTS = {"model": 1.0, "taste": 1.0, "concern": 0.8, "watch": 2.5}
 
 
 @dataclass
@@ -33,6 +37,7 @@ class UserProfile:
     skin_type: str | None = None
     skin_tone: str | None = None          # e.g. from the photo analyser
     sensitive: bool = False
+    concerns: list[str] = field(default_factory=list)
     category: str | None = None
     max_price: float | None = None
     avoid_ingredients: list[str] = field(default_factory=list)
@@ -102,7 +107,8 @@ class Recommender:
         return pd.Series(self.clf.predict_proba(X)[:, 1], index=ids)
 
     def recommend(self, profile: UserProfile, k: int = 10, explain: bool = True) -> pd.DataFrame:
-        p, w = self.products, self.weights
+        # merge with defaults so artifacts saved before a weight existed keep working
+        p, w = self.products, {**DEFAULT_WEIGHTS, **self.weights}
         mask = np.ones(len(p), dtype=bool)
         if profile.category:
             mask &= (p["Category"] == profile.category).to_numpy()
@@ -123,16 +129,30 @@ class Recommender:
             sim = (self.unit @ self.unit[liked].T).mean(axis=1)
             score = score + w["taste"] * _z(sim)
 
-        out = p.assign(score=score, p_like=p_like.to_numpy(), similarity=sim)[mask]
+        concern_fit = np.zeros(len(p))
+        watch = np.zeros(len(p))
+        if profile.concerns:
+            concern_fit = np.mean([[min(len(helpful_hits(c, t)), 2) / 2 for t in p["Ingredients"]]
+                                   for c in profile.concerns], axis=0)
+            watch = np.max([[float(bool(watch_hits(c, t))) for t in p["Ingredients"]]
+                            for c in profile.concerns], axis=0)
+            score = score + w["concern"] * _z(concern_fit) - w["watch"] * watch
+
+        out = p.assign(score=score, p_like=p_like.to_numpy(), similarity=sim, concern_fit=concern_fit)[mask]
         out = out.sort_values("score", ascending=False).head(k)
         if explain:
             out["why"] = [self._explain(r, profile) for r in out.itertuples()]
+        out["ingredient_flags"] = [sorted({f for c in profile.concerns for f in watch_hits(c, ing)})
+                                   for ing in out["Ingredients"]]
         return out.drop(columns=["Ingredients"])
 
-    @staticmethod
-    def _explain(row, profile):
+    def _explain(self, row, profile):
         who = f"{profile.skin_type.lower()} skin" if profile.skin_type else "a typical user"
         parts = [f"model estimates a {row.p_like:.0%} chance of a 4-5 star experience for {who}"]
+        ing = self.products.at[row.Index, "Ingredients"]
+        for c in profile.concerns:
+            if found := helpful_hits(c, ing):
+                parts.append(f"contains {', '.join(found)} (often used for {c.replace('_', ' ')})")
         if profile.skin_type and getattr(row, profile.skin_type) == 1:
             parts.append(f"labelled suitable for {profile.skin_type.lower()} skin")
         if profile.liked_product_ids:

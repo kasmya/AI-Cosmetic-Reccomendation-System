@@ -6,7 +6,8 @@
 
      Sections and the endpoints they use
        #step-profile   GET  /api/v1/options                       skin type, concerns, colour preferences, budget
-       #step-photo     POST /api/v1/face/analyze                  raw image bytes -> skin colour + tone
+       #step-quiz      GET  /api/v1/skin/questionnaire, POST /api/v1/skin/assess   concern scoring with reasons
+       #step-photo     POST /api/v1/face/analyze                  raw image bytes -> skin colour + tone + low-confidence hints
        #res-*          POST /api/v1/consult                       profile, skincare (+alternatives), makeup, routine, shopping
        #res-product    GET  /api/v1/products/{id}                 detail + review summary (planned)
                        GET  /api/v1/products/{id}/web             live web results (needs TAVILY_API_KEY on the server)
@@ -39,9 +40,17 @@ h1,h2,h3{margin:.3em 0}fieldset{border:1px solid #eee;margin:10px 0}label{margin
   <label>Ingredients to avoid <input id="avoid" placeholder="fragrance, alcohol"></label>
 </section>
 
-<!-- ============ STEP 2: PHOTO  (POST /api/v1/face/analyze, raw image bytes) ============ -->
+<!-- ============ STEP 2: SKIN QUIZ  (GET /api/v1/skin/questionnaire, POST /api/v1/skin/assess) ============ -->
+<section id="step-quiz" data-endpoint="GET /api/v1/skin/questionnaire">
+  <h2>2. Skin quiz <span class="meta">(optional, answers are used to infer skin type and concerns)</span></h2>
+  <div id="quiz"></div>
+  <button id="assess">Assess my skin</button>
+  <div id="quiz-result" aria-live="polite"></div>
+</section>
+
+<!-- ============ STEP 3: PHOTO  (POST /api/v1/face/analyze, raw image bytes) ============ -->
 <section id="step-photo" data-endpoint="POST /api/v1/face/analyze">
-  <h2>2. Photo <span class="meta">(optional, analysed in memory, never stored)</span></h2>
+  <h2>3. Photo <span class="meta">(optional, analysed in memory, never stored)</span></h2>
   <input id="photo" type="file" accept="image/*">
   <img id="preview" alt="" hidden>
   <div id="photo-result" class="meta" aria-live="polite"></div>
@@ -77,6 +86,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const badge = st => `<span class="badge ${esc(st)}">${esc(st)}</span>`;
 const API_BASE = window.API_BASE || '';   // set window.API_BASE = 'http://localhost:8000' to open this file standalone
+let questions = [];
+let lastAssess = null;
 let face = null;   // result of /face/analyze, passed into /consult
 
 async function api(url, opts) {
@@ -95,7 +106,32 @@ api('/api/v1/options').then(o => {
   checks('concerns', o.concerns); checks('colour_prefs', o.colour_preferences);
 }).catch(e => $('status').textContent = e.message);
 
-/* ---- step 2: photo ---- */
+/* ---- step 2: quiz ---- */
+api('/api/v1/skin/questionnaire').then(qs => {
+  questions = qs;
+  $('quiz').innerHTML = qs.map(q => `<label>${esc(q.text)}<br><select data-q="${esc(q.id)}"><option value="">Skip</option>` +
+    q.options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('') + '</select></label><br>').join('');
+}).catch(() => {});
+const answers = () => Object.fromEntries([...document.querySelectorAll('#quiz select')].filter(s => s.value).map(s => [s.dataset.q, s.value]));
+const levelBadge = l => `<span class="badge">${esc(l)}</span>`;
+const concernCards = list => list.length ? list.map(c => `<div class="card"><b>${esc(c.concern.replace('_', ' '))}</b> ${levelBadge(c.level)}
+  <div class="meta">Why: ${esc(c.reasons.join('; '))}</div>
+  <div class="meta">Helpful ingredients: ${esc(c.helpful_ingredients.join(', '))}</div>
+  ${c.ingredients_to_watch.length ? `<div class="meta">Often irritating for this concern: ${esc(c.ingredients_to_watch.join(', '))}</div>` : ''}
+  ${c.tip ? `<div class="meta">Tip: ${esc(c.tip)}</div>` : ''}</div>`).join('') : '<p class="meta">No concerns identified.</p>';
+$('assess').onclick = async () => {
+  $('quiz-result').textContent = 'Assessing…';
+  try {
+    const j = await api('/api/v1/skin/assess', {method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({skin_type: $('skin_type').value || null, concerns: picked('concerns'), answers: answers(), photo_hints: face ? face.hints : null})});
+    lastAssess = j;
+    if (j.skin_type && !$('skin_type').value) $('skin_type').value = j.skin_type;
+    $('quiz-result').innerHTML = `<p>Skin type: <b>${esc(j.skin_type || 'unknown')}</b> <span class="meta">(${esc(j.skin_type_source)})</span></p>` +
+      concernCards(j.concerns) + `<p class="meta">${esc(j.disclaimer)}</p>`;
+  } catch (e) { $('quiz-result').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+};
+
+/* ---- step 3: photo ---- */
 $('photo').onchange = async () => {
   const f = $('photo').files[0]; face = null; $('photo-result').textContent = ''; $('preview').hidden = true;
   if (!f) return;
@@ -103,7 +139,9 @@ $('photo').onchange = async () => {
   $('photo-result').textContent = 'Analysing…';
   try {
     face = await api('/api/v1/face/analyze', {method: 'POST', body: f});
-    $('photo-result').innerHTML = `<span class="sw" style="background:${esc(face.skin_hex)}"></span>Skin colour ${esc(face.skin_hex)}, tone ${esc(face.tone)}`;
+    const h = face.hints;
+    $('photo-result').innerHTML = `<span class="sw" style="background:${esc(face.skin_hex)}"></span>Skin colour ${esc(face.skin_hex)}, tone ${esc(face.tone)}` +
+      (h ? `<div>Photo hints (${esc(h.confidence)} confidence): redness ${esc(h.redness.level)}, shine ${esc(h.shine.level)}, blemishes ${esc(h.blemishes.level)}. ${esc(h.note)}</div>` : '');
   } catch (e) { $('photo-result').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
 };
 
@@ -113,6 +151,7 @@ $('go').onclick = async () => {
     skin_type: $('skin_type').value || null, concerns: picked('concerns'), colour_preferences: picked('colour_prefs'),
     sensitive: $('sensitive').checked, max_price_per_item: $('max_price').value ? +$('max_price').value : null,
     avoid_ingredients: $('avoid').value.split(',').map(s => s.trim()).filter(Boolean),
+    answers: answers(), photo_hints: face ? face.hints : null,
     skin_hex: face ? face.skin_hex : null, skin_tone: face ? face.tone : null, per_category: 2,
   };
   $('status').textContent = 'Working…';
@@ -125,15 +164,14 @@ $('go').onclick = async () => {
 /* ---- renderers: one per results section ---- */
 function render(j) {
   $('results').hidden = false;
-  // profile
-  $('res-profile').querySelector('.body').innerHTML = (j.profile.concerns.length
-    ? j.profile.concerns.map(c => `<div class="card"><b>${esc(c.concern.replace('_', ' '))}</b><div class="meta">Helpful ingredients: ${esc(c.helpful_ingredients.join(', '))}</div></div>`).join('')
-    : '<p class="meta">No concerns selected.</p>') + `<p class="meta">${esc(j.profile.disclaimer)}</p>`;
+  // profile (concerns with level, reasons, helpful and watch ingredients)
+  $('res-profile').querySelector('.body').innerHTML = `<p>Skin type: <b>${esc(j.profile.skin_type || 'unknown')}</b> <span class="meta">(${esc(j.profile.skin_type_source)})</span></p>` +
+    concernCards(j.profile.concerns) + `<p class="meta">${esc(j.profile.disclaimer)}</p>`;
   // skincare
   $('skincare-status').outerHTML = `<span class="badge ${esc(j.skincare_status)}" id="skincare-status">${esc(j.skincare_status)}</span>`;
   $('res-skincare').querySelector('.body').innerHTML = Object.entries(j.skincare).map(([cat, items]) =>
     `<h3>${esc(cat)}</h3>` + (items.map(p => `<div class="card"><b>${esc(p.name)}</b> <span class="meta">${esc(p.brand)} · $${esc(p.price)} · source: ${esc(p.source)}</span><br>
-      Score <b>${esc(p.aicosmetic_score)}</b>/100 · ${esc(p.verdict)} ${badge(p.score_status)}<div class="meta">${esc(p.why)}</div>
+      Score <b>${esc(p.aicosmetic_score)}</b>/100 · ${esc(p.verdict)} ${badge(p.score_status)}${p.breakdown.concern_fit != null ? ` · concern fit ${esc(p.breakdown.concern_fit)}` : ''}${p.breakdown.ingredient_flags.length ? ` · <span class="err">contains: ${esc(p.breakdown.ingredient_flags.join(', '))}</span>` : ''}<div class="meta">${esc(p.why)}</div>
       ${p.alternatives.length ? `<div class="meta">Also consider (other sources): ${p.alternatives.map(a => `${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.name)}</a>` : esc(a.name)} (${esc(a.brand || 'unknown brand')}, ${esc(a.source)}, ingredient similarity ${esc(a.similarity)})`).join('; ')}</div>` : ''}
       <button data-pid="${esc(p.product_id)}">Details</button></div>`).join('') || '<p class="meta">No products match.</p>')).join('');
   // makeup

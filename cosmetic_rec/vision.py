@@ -11,6 +11,8 @@ Approximate: brightness and camera colour balance affect the result.
 import cv2
 import numpy as np
 
+from .skin_hints import hints_from_face
+
 TONES = ["Porcelain", "Fair", "Light", "Medium", "Olive", "Tan", "Deep", "Dark", "Ebony"]
 _ITA_FLOOR = [60, 50, 41, 28, 19, 10, -10, -30, -90]  # ITA (degrees) above which each tone applies
 
@@ -82,4 +84,5 @@ def estimate_skin_tone(img: np.ndarray) -> dict:
     lab, n = dominant_skin_lab(img, face)
     ita = float(np.degrees(np.arctan2(lab[0] - 50, max(float(lab[2]), 1e-3))))
     return {"tone": ita_to_tone(ita), "ita": round(ita, 1), "skin_hex": lab_to_hex(lab),
-            "lab": [round(float(v), 1) for v in lab], "face": [int(v) for v in face], "skin_pixels": n}
+            "lab": [round(float(v), 1) for v in lab], "face": [int(v) for v in face], "skin_pixels": n,
+            "hints": hints_from_face(img, face)}

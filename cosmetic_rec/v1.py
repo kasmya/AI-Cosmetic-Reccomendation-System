@@ -12,6 +12,8 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
+from . import concerns as cx
+from .concerns import CONCERNS
 from .data import SKIN_TYPES
 from .recommender import UserProfile
 from .state import state
@@ -20,20 +22,8 @@ from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_he
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 Status = Literal["live", "provisional", "planned"]
 
-CONCERNS = ["acne", "dryness", "oiliness", "sensitivity", "dark_spots", "redness", "fine_lines", "dullness"]
 COLOUR_PREFS = ["warm", "cool", "neutral", "nude", "pink", "coral", "berry", "bold", "natural"]
 NOT_MEDICAL = "Informational only, not medical advice. See a dermatologist for persistent or severe skin problems."
-# Concern -> ingredient guidance (small hand-written starter map; refined in Phase 3).
-CONCERN_INGREDIENTS = {
-    "acne": ["salicylic acid", "niacinamide", "benzoyl peroxide"],
-    "dryness": ["ceramide", "hyaluronic acid", "glycerin"],
-    "oiliness": ["niacinamide", "salicylic acid", "clay"],
-    "sensitivity": ["centella", "panthenol", "allantoin"],
-    "dark_spots": ["vitamin c", "niacinamide", "azelaic acid"],
-    "redness": ["centella", "azelaic acid", "green tea"],
-    "fine_lines": ["retinol", "peptide", "vitamin c"],
-    "dullness": ["vitamin c", "glycolic acid", "lactic acid"],
-}
 
 
 # ---------------- schemas ----------------
@@ -47,6 +37,7 @@ class Options(BaseModel):
 
 
 class FaceResult(BaseModel):
+    hints: dict | None = None      # low-confidence photo hints (redness, shine, blemishes); forward to /skin/assess
     tone: str
     ita: float
     skin_hex: str
@@ -57,24 +48,41 @@ class FaceResult(BaseModel):
 
 class AssessRequest(BaseModel):
     skin_type: str | None = None
-    concerns: list[str] = []
+    concerns: list[str] = Field([], description="Concerns the user selected directly")
+    answers: dict[str, str] = Field({}, description="Questionnaire answers: {question_id: option_value}")
+    photo_hints: dict | None = Field(None, description="`hints` from /face/analyze (optional, low confidence)")
 
 
 class ConcernAdvice(BaseModel):
     concern: str
+    level: Literal["selected", "likely", "possible"] = "selected"
+    score: float = 1.0
+    reasons: list[str] = []
     helpful_ingredients: list[str]
+    ingredients_to_watch: list[str] = []
+    tip: str = ""
 
 
 class AssessResponse(BaseModel):
     status: Status
     skin_type: str | None
+    skin_type_source: str = ""
     concerns: list[ConcernAdvice]
+    photo_hints_used: bool = False
     disclaimer: str = NOT_MEDICAL
+
+
+class Question(BaseModel):
+    id: str
+    text: str
+    options: list[dict]
 
 
 class ConsultRequest(BaseModel):
     skin_type: str | None = Field(None, description=f"One of {SKIN_TYPES}")
     concerns: list[str] = []
+    answers: dict[str, str] = Field({}, description="Questionnaire answers, see GET /skin/questionnaire")
+    photo_hints: dict | None = None
     colour_preferences: list[str] = []
     sensitive: bool = False
     max_price_per_item: float | None = Field(None, ge=0)
@@ -88,7 +96,7 @@ class ScoreBreakdown(BaseModel):
     model_like_probability: float
     review_sentiment: float | None = None   # Phase 4
     concern_fit: float | None = None        # Phase 3/4
-    ingredient_flags: list[str] = []
+    ingredient_flags: list[str] = []     # ingredients often reported as aggravating for the user's concerns
 
 
 class Alternative(BaseModel):
@@ -212,10 +220,17 @@ def _check_inputs(skin_type, concerns, prefs=(), tone=None):
         raise HTTPException(422, f"skin_tone must be one of {TONES}")
 
 
-def _assess(skin_type, concerns) -> AssessResponse:
-    return AssessResponse(
-        status="provisional", skin_type=skin_type,
-        concerns=[ConcernAdvice(concern=c, helpful_ingredients=CONCERN_INGREDIENTS[c]) for c in concerns])
+def _assess(skin_type, selected, answers=None, photo_hints=None) -> AssessResponse:
+    try:
+        decided, source, found = cx.assess(answers, selected, photo_hints, skin_type)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    advice = [ConcernAdvice(concern=c.concern, level=c.level, score=c.score, reasons=c.reasons,
+                            helpful_ingredients=cx.helpful_names(c.concern),
+                            ingredients_to_watch=cx.watch_names(c.concern), tip=cx.TIPS.get(c.concern, ""))
+              for c in found]
+    return AssessResponse(status="live", skin_type=decided, skin_type_source=source, concerns=advice,
+                          photo_hints_used=bool(photo_hints))
 
 
 def _review_summary(product_id: int) -> ReviewSummary:
@@ -246,11 +261,17 @@ async def face_analyze(request: Request):
         raise HTTPException(400, str(e)) from e
 
 
+@router.get("/skin/questionnaire", response_model=list[Question])
+def skin_questionnaire():
+    """The skin questionnaire. Send answers as {question_id: option_value} to /skin/assess or /consult."""
+    return cx.public_questionnaire()
+
+
 @router.post("/skin/assess", response_model=AssessResponse)
 def skin_assess(req: AssessRequest):
-    """Maps selected concerns to helpful ingredients. Not a diagnosis."""
+    """Scores concerns from the questionnaire, selected concerns and (optionally) photo hints. Not a diagnosis."""
     _check_inputs(req.skin_type, req.concerns)
-    return _assess(req.skin_type, req.concerns)
+    return _assess(req.skin_type, req.concerns, req.answers, req.photo_hints)
 
 
 def _alternatives(product_id: int) -> list[Alternative]:
@@ -266,7 +287,9 @@ def _skincare_item(r) -> SkincareItem:
     return SkincareItem(
         product_id=int(r.Product_id), name=r.Product, brand=r.Brand, category=r.Category, price=float(r.Price),
         source="sephora_reviews", aicosmetic_score=score, verdict=_verdict(score), score_status="provisional",
-        breakdown=ScoreBreakdown(model_like_probability=round(float(r.p_like), 3)), why=r.why,
+        breakdown=ScoreBreakdown(model_like_probability=round(float(r.p_like), 3),
+                                 concern_fit=round(float(r.concern_fit), 2) if r.concern_fit else None,
+                                 ingredient_flags=r.ingredient_flags), why=r.why,
         alternatives=_alternatives(int(r.Product_id)))
 
 
@@ -293,10 +316,14 @@ def consult(req: ConsultRequest):
     """One call that returns the whole consultation. Sections not built yet say status='planned'."""
     _check_inputs(req.skin_type, req.concerns, req.colour_preferences, req.skin_tone)
     rec = state["rec"]
+    profile_result = _assess(req.skin_type, req.concerns, req.answers, req.photo_hints)
+    skin_type = profile_result.skin_type
+    active_concerns = [c.concern for c in profile_result.concerns]
 
     skincare: dict[str, list[SkincareItem]] = {}
     for category in ("Cleanser", "Treatment", "Moisturizer"):
-        profile = UserProfile(skin_type=req.skin_type, skin_tone=req.skin_tone, sensitive=req.sensitive,
+        profile = UserProfile(skin_type=skin_type, skin_tone=req.skin_tone, sensitive=req.sensitive,
+                              concerns=active_concerns,
                               category=category, max_price=req.max_price_per_item,
                               avoid_ingredients=req.avoid_ingredients)
         out = rec.recommend(profile, k=req.per_category).reset_index()
@@ -308,7 +335,7 @@ def consult(req: ConsultRequest):
     picks = [items[0] for items in skincare.values() if items]
     shopping = {"status": "provisional", "items": [i.product_id for i in picks],
                 "total_price": round(sum(i.price for i in picks), 2)}
-    return ConsultResponse(profile=_assess(req.skin_type, req.concerns), skincare=skincare,
+    return ConsultResponse(profile=profile_result, skincare=skincare,
                            skincare_status="provisional", makeup=makeup, routine=_routine(skincare),
                            shopping_list=shopping)
 

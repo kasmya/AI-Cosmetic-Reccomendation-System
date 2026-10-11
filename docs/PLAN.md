@@ -34,7 +34,7 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - Done when: one loader builds the table with provenance, row counts per source are reported, tests check schema.
 - Risk: sources disagree on categories and price currency. Mitigation: mapping tables plus validation tests.
 
-## Phase 3: Skin profile and concern assessment
+## Phase 3: Skin profile and concern assessment (DONE)
 - Questionnaire to concern categories (acne, dryness, oiliness, sensitivity, dark spots, redness, ageing) with weights.
 - Optional photo hints with OpenCV (redness index in Lab a*, shine from highlight pixels, blemish density by blob detection). Reported as hints with low confidence, never a diagnosis.
 - Concern to ingredient map (for example acne: salicylic acid, niacinamide; dryness: ceramides, hyaluronic acid) used to boost and filter skincare.
@@ -79,3 +79,11 @@ Skincare ML recommender (P(like) model + ingredient embeddings), foundation shad
 - Optional live web search (Tavily) behind `/api/v1/products/{id}/web`, off unless `TAVILY_API_KEY` is set.
 - Effect on the skincare model: none measurable (AUC 0.599 to 0.595, hybrid hit rate 8.6% to 8.2%, both within noise).
 - Known limits: Open Beauty Facts is mostly European, product names are in many languages, and category assignment is keyword based, so some products are mislabelled. Brand is missing for some rows.
+
+## Phase 3 results
+- **Questionnaire** (8 questions, `GET /api/v1/skin/questionnaire`): answers infer skin type and score 8 concerns with reasons (levels: selected / likely / possible). `POST /api/v1/skin/assess` is now live; `/consult` runs it internally, so a single call can use `answers` and `photo_hints`.
+- **Concern knowledge base** (`concerns.py`): per concern, helpful ingredients, ingredients often reported as aggravating ("watch"), and a short tip. It is a hand-written lookup, not clinical evidence, and nothing here has been validated against outcomes (the datasets have no outcome data).
+- **Ranking effect:** concerns now change skincare rankings. Ingredient fit adds a z-scored boost; watch ingredients take a flat penalty. Measured on this catalog: with the acne concern the top-10 contains 2.0 helpful ingredients per product on average (vs 0.3 without); with sensitivity, products containing fragrance and similar fall from 6 of the top 10 to 1 (the penalty had to be 2.5, since 59% of products contain one and a gentler penalty changed nothing). The model's own P(like) for the picks drops a little (0.89 to 0.80), the expected cost.
+- **Photo hints (OpenCV)** in `/face/analyze` (`hints`): redness (share of cheek pixels redder than the person's own median), shine (small specular highlights relative to surrounding skin) and blemishes (small spots redder than surroundings). Labelled low confidence. A photo alone can never push a concern past "possible".
+- **Checked on synthetic patches only:** clean skin scores low on all three; patches with added spots, red areas or highlights score high. There is no labelled face dataset behind these thresholds, so treat the hints as a weak nudge. Two issues found and fixed on the way: the skin mask excluded very red pixels (hiding the redness it measures), and an "absolute brightness" shine test fired on a brightly lit photo.
+- Contract changes are additive (new optional fields and endpoints). 57 tests.
