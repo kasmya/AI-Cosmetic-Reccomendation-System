@@ -1,47 +1,89 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cosmetic Recommender</title>
+<title>Skinwise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@300;400&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#fff;--fg:#1a1a1a;--mut:#767676;--line:#e8e8e8}
-@media(prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#8a8a8a;--line:#2a2a2a}}
+:root{--bg:#fcfcfb;--ink:#1c1917;--mut:#8a817b;--line:#e9e5e1;--terra:#c4654a;--terra-d:#b25a41}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
-main{max-width:560px;margin:0 auto;padding:48px 16px}
-h1{font-size:22px;font-weight:600;margin:0}
-.sub{color:var(--mut);margin:4px 0 32px;font-size:14px}
-form{display:grid;gap:16px}
-label{display:grid;gap:4px;font-size:13px;color:var(--mut)}
-select,input,button{font:inherit;color:var(--fg);background:transparent;border:0;border-bottom:1px solid var(--line);padding:8px 0;border-radius:0}
-select:focus,input:focus{outline:0;border-color:var(--fg)}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.check{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--fg)}
-.check input{width:auto}
-button{border:1px solid var(--fg);padding:10px;cursor:pointer;margin-top:8px}
-button:hover{background:var(--fg);color:var(--bg)}
-#out{margin-top:32px}
-.item{padding:16px 0;border-top:1px solid var(--line)}
-.item b{font-weight:600}.meta{color:var(--mut);font-size:13px}#photo{border:0}.why{font-size:13px;margin-top:4px;color:var(--mut)}
-@media(max-width:480px){.row{grid-template-columns:1fr}}
-</style></head><body><main>
-<h1>Cosmetic Recommender</h1>
-<p class="sub">Skincare picks ranked by a trained model over 8.6k real reviews.</p>
-<form id="f">
-<div class="row">
-<label>Skin type<select id="skin"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
-<label>Category<select id="cat"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
-</div>
-<div class="row">
-<label>Max price ($)<input id="price" type="number" min="0" placeholder="no limit"></label>
-<label>Avoid ingredients<input id="avoid" placeholder="fragrance, alcohol"></label>
-</div>
-<label>A product you liked (optional)<input id="liked" list="products" placeholder="start typing a product name"></label>
-<datalist id="products"></datalist>
-<label>Skin tone from a photo (optional, processed in memory, never stored)<input id="photo" type="file" accept="image/*"></label>
-<div id="tone" class="meta" aria-live="polite"></div>
-<label class="check"><input id="sens" type="checkbox"> Sensitive skin</label>
-<button>Recommend</button>
-</form>
-<div id="out" aria-live="polite"></div>
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:300 15px/1.6 Inter,system-ui,sans-serif}
+.serif{font-family:"Cormorant Garamond",Georgia,serif;font-weight:300;text-transform:uppercase}
+nav{display:flex;justify-content:space-between;align-items:center;max-width:1000px;margin:0 auto;padding:24px 20px}
+nav .brand{letter-spacing:.3em;font-size:13px}
+.btn{background:var(--ink);color:#fff;border:0;padding:8px 18px;font:400 11px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;text-decoration:none}
+.btn:hover{background:var(--terra)}
+/* hero */
+.hero{position:relative;max-width:1000px;margin:0 auto;padding:40px 20px 0;text-align:center}
+.arch{width:min(280px,60vw);height:min(330px,70vw);margin:0 auto;border-radius:999px 999px 0 0;
+ background:repeating-linear-gradient(115deg,#a94f37 0 6px,#cf7658 6px 14px,#b85d43 14px 22px);position:relative;overflow:hidden}
+.arch::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 20% 0,rgba(255,255,255,.28),transparent 60%)}
+.wordmark{font-size:clamp(64px,17vw,210px);line-height:1;color:var(--terra);margin:0;position:absolute;left:0;right:0;top:14%;letter-spacing:.02em}
+.lede{font-size:clamp(22px,3.4vw,38px);line-height:1.25;max-width:620px;margin:56px auto 0;color:var(--ink)}
+.lede em{color:var(--terra);font-style:normal}
+/* form */
+section{max-width:1000px;margin:0 auto;padding:80px 20px}
+h2{font-size:clamp(28px,4vw,44px);margin:0 0 8px;text-align:center}
+h2 em{color:var(--terra);font-style:normal}
+.sub{text-align:center;color:var(--mut);margin:0 0 40px;font-size:13px}
+form{display:grid;gap:22px;max-width:620px;margin:0 auto}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+label{display:grid;gap:2px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+select,input{font:300 15px Inter,sans-serif;color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--line);padding:8px 0;border-radius:0;letter-spacing:0;text-transform:none}
+select:focus,input:focus{outline:0;border-color:var(--terra)}
+input[type=file]{border:0;padding:6px 0;font-size:13px}
+.check{display:flex;gap:10px;align-items:center;letter-spacing:.06em;text-transform:none;font-size:14px;color:var(--ink)}
+.check input{width:auto;accent-color:var(--terra)}
+form .btn{justify-self:center;margin-top:10px;padding:12px 34px}
+#tone{font-size:12px;color:var(--terra);min-height:1em;text-transform:none;letter-spacing:0}
+/* results band */
+#results{background:var(--terra);color:#fff;max-width:none;padding:70px 20px 80px;display:none}
+#results h2{color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;max-width:1000px;margin:36px auto 0}
+.card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);padding:20px;display:flex;flex-direction:column;gap:6px}
+.card .rank{font:300 13px "Cormorant Garamond",serif;letter-spacing:.2em;opacity:.8}
+.card h3{font:400 22px/1.15 "Cormorant Garamond",Georgia,serif;margin:0}
+.card .meta{font-size:12px;opacity:.85;letter-spacing:.06em}
+.card .why{font-size:12px;opacity:.8;margin-top:auto;padding-top:8px;border-top:1px solid rgba(255,255,255,.25)}
+.msg{text-align:center;opacity:.9;margin-top:30px}
+footer{text-align:center;color:var(--mut);font-size:12px;padding:30px 20px 50px}
+@media(max-width:560px){.row{grid-template-columns:1fr}}
+</style></head><body>
+<nav><span style="width:22px"></span><span class="brand serif">Skinwise</span><a class="btn" href="#find">Get started</a></nav>
+
+<header class="hero">
+  <div class="arch"></div>
+  <h1 class="wordmark serif">Skinwise</h1>
+  <p class="lede serif">A smarter way to choose <em>skincare</em>, built from real reviews</p>
+</header>
+
+<section id="find">
+  <h2 class="serif">Find your <em>match</em></h2>
+  <p class="sub">Tell us a little. Add a photo if you like, and we'll estimate your tone.</p>
+  <form id="f">
+    <div class="row">
+      <label>Skin type<select id="skin"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
+      <label>Category<select id="cat"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
+    </div>
+    <div class="row">
+      <label>Max price ($)<input id="price" type="number" min="0" placeholder="No limit"></label>
+      <label>Avoid ingredients<input id="avoid" placeholder="fragrance, alcohol"></label>
+    </div>
+    <label>A product you liked (optional)<input id="liked" list="products" placeholder="Start typing a name"></label>
+    <datalist id="products"></datalist>
+    <label>Photo for tone (optional, never stored)<input id="photo" type="file" accept="image/*"></label>
+    <div id="tone" aria-live="polite"></div>
+    <label class="check"><input id="sens" type="checkbox"> Sensitive skin</label>
+    <button class="btn">Recommend</button>
+  </form>
+</section>
+
+<section id="results" aria-live="polite">
+  <h2 class="serif">Your <span style="opacity:.75">picks</span></h2>
+  <div id="out" class="grid"></div>
+</section>
+<footer>Trained on 8.6k real reviews · estimates, not medical advice</footer>
+
 <script>
 const $=id=>document.getElementById(id),ids={};let tone=null;
 fetch('/products?limit=400').then(r=>r.json()).then(ps=>ps.forEach(p=>{
@@ -53,20 +95,20 @@ $('photo').onchange=async()=>{const f=$('photo').files[0];tone=null;$('tone').te
     if(!r.ok)throw new Error(j.detail||r.status);tone=j.tone;
     $('tone').textContent=`Estimated tone: ${j.tone} (approximate, depends on lighting)`}
   catch(e){$('tone').textContent=e.message}};
-$('f').onsubmit=async e=>{e.preventDefault();const out=$('out');
+function card(p,i){const c=document.createElement('div');c.className='card';
+  const add=(cls,t,tag='div')=>{const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=t;c.append(e)};
+  add('rank',String(i+1).padStart(2,'0'));add('',p.Product,'h3');
+  add('meta',`${p.Brand} · ${p.Category} · $${p.Price}`);add('why',p.why);return c}
+$('f').onsubmit=async e=>{e.preventDefault();const out=$('out'),res=$('results');
   const liked=ids[$('liked').value];
   const body={skin_type:$('skin').value||null,skin_tone:tone,category:$('cat').value||null,
     max_price:$('price').value?+$('price').value:null,sensitive:$('sens').checked,
     avoid_ingredients:$('avoid').value.split(',').map(s=>s.trim()).filter(Boolean),
     liked_product_ids:liked?[liked]:[],k:8};
-  out.textContent='Loading…';
+  res.style.display='block';out.innerHTML='<p class="msg">Finding your matches…</p>';
   try{const r=await fetch('/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error(r.status);const j=await r.json();out.textContent='';
-    if(!j.count){out.textContent='No products match those filters.';return}
-    j.results.forEach(p=>{const d=document.createElement('div');d.className='item';
-      const b=document.createElement('b');b.textContent=p.Product;
-      const m=document.createElement('div');m.className='meta';m.textContent=`${p.Brand} · ${p.Category} · $${p.Price}`;
-      const w=document.createElement('div');w.className='why';w.textContent=p.why;
-      d.append(b,m,w);out.append(d)})
-  }catch(err){out.textContent='Something went wrong ('+err.message+')'}};
-</script></main></body></html>
+    if(!r.ok)throw new Error(r.status);const j=await r.json();out.innerHTML='';
+    if(!j.count){out.innerHTML='<p class="msg">No products match those filters.</p>';return}
+    j.results.forEach((p,i)=>out.append(card(p,i)));res.scrollIntoView({behavior:'smooth'})
+  }catch(err){out.innerHTML='<p class="msg">Something went wrong ('+err.message+')</p>'}};
+</script></body></html>
