@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cosmetic Recommender</title>
+<style>
+:root{--bg:#faf8f6;--fg:#222;--card:#fff;--line:#e6e0da;--accent:#a8456b;--mut:#6b6560}
+@media(prefers-color-scheme:dark){:root{--bg:#161416;--fg:#eee;--card:#211e21;--line:#363136;--accent:#e08ab0;--mut:#a39ca3}}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+main{max-width:760px;margin:0 auto;padding:24px 16px}h1{margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 20px}
+form{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:var(--card);border:1px solid var(--line);padding:16px;border-radius:12px}
+label{display:flex;flex-direction:column;font-size:14px;color:var(--mut);gap:4px}.full{grid-column:1/-1}
+select,input{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
+button{grid-column:1/-1;padding:10px;border:0;border-radius:8px;background:var(--accent);color:#fff;font:inherit;cursor:pointer}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+.item b{display:block}.meta{color:var(--mut);font-size:14px}.why{font-size:14px;margin-top:6px}
+@media(max-width:520px){form{grid-template-columns:1fr}}
+</style></head><body><main>
+<h1>Cosmetic Recommender</h1>
+<p class="sub">Ranked from 8.6k real reviews of 315 products. Each result says why.</p>
+<form id="f">
+<label>Skin type<select name="skin_type"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
+<label>Category<select name="category"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
+<label>Max price ($)<input name="max_price" type="number" min="0" placeholder="no limit"></label>
+<label>Avoid ingredients (comma separated)<input name="avoid" placeholder="fragrance, alcohol"></label>
+<label class="full"><span><input type="checkbox" name="sensitive"> Sensitive skin (only products labelled suitable)</span></label>
+<button>Recommend</button>
+</form>
+<div id="out" aria-live="polite"></div>
+<script>
+const f=document.getElementById('f'),out=document.getElementById('out');
+f.onsubmit=async e=>{e.preventDefault();const d=new FormData(f);
+const body={skin_type:d.get('skin_type')||null,category:d.get('category')||null,
+max_price:d.get('max_price')?+d.get('max_price'):null,sensitive:f.sensitive.checked,
+avoid_ingredients:(d.get('avoid')||'').split(',').map(s=>s.trim()).filter(Boolean),k:8};
+out.textContent='Loading…';
+try{const r=await fetch('/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+if(!r.ok)throw new Error(r.status);const j=await r.json();out.textContent='';
+if(!j.count){out.textContent='No products match those filters.';return}
+j.results.forEach(p=>{const el=document.createElement('div');el.className='item';
+const b=document.createElement('b');b.textContent=p.Product;
+const m=document.createElement('span');m.className='meta';m.textContent=`${p.Brand} · ${p.Category} · $${p.Price}`;
+const w=document.createElement('div');w.className='why';w.textContent=p.why;
+el.append(b,m,w);out.append(el)})}catch(err){out.textContent='Something went wrong: '+err.message}};
+</script></main></body></html>
