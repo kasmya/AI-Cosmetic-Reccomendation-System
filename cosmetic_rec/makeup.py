@@ -1,7 +1,7 @@
 """Foundation shade matching: k-nearest-neighbours in CIELAB colour space.
 
 Lab distance approximates perceived colour difference, so the nearest swatches to a measured
-skin colour are the closest-looking shades. Data: 625 liquid-foundation shades from 36 brands.
+skin colour are the closest-looking shades. Data: 621 liquid-foundation shades from 36 brands.
 """
 import numpy as np
 import pandas as pd
