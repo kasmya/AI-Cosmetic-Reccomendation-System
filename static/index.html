@@ -1,104 +1,144 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cosmetic Recommender</title>
+<title>Cosmetic Consultation</title>
+<!-- BAREBONES STRUCTURE. Restyle freely: keep the ids and data-endpoint attributes, they are what the script binds to.
+     Endpoint contract: /docs (live OpenAPI) and docs/FRONTEND.md. -->
 <style>
-:root{--ink:#222;--mut:#777;--line:#ddd;--acc:#c4654a}
-*{box-sizing:border-box}
-body{margin:0;font:15px/1.5 system-ui,sans-serif;color:var(--ink);background:#fafafa}
-header,main{max-width:760px;margin:0 auto;padding:0 16px}
-header{padding-top:24px}h1{margin:0;font-size:22px}.sub{color:var(--mut);margin:2px 0 16px}
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
-.tabs button{border:0;background:none;padding:10px 16px;font:inherit;cursor:pointer;color:var(--mut);border-bottom:2px solid transparent}
-.tabs button[aria-selected=true]{color:var(--ink);border-color:var(--acc)}
-.panel{display:none;padding:20px 0}.panel.on{display:block}
-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
-label{display:grid;gap:4px;font-size:13px;color:var(--mut)}.full{grid-column:1/-1}
-select,input{font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
-.check{display:flex;align-items:center;gap:8px;color:var(--ink)}.check input{width:auto}
-button.go{padding:10px 16px;border:0;border-radius:6px;background:var(--ink);color:#fff;font:inherit;cursor:pointer}
-button.go:hover{background:var(--acc)}
-.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:10px}
-.card b,.shade b{display:block}.meta{color:var(--mut);font-size:13px}.why{font-size:13px;margin-top:4px}
-.shade{display:flex;gap:12px;align-items:center}
-.sw{flex:none;width:44px;height:44px;border-radius:6px;border:1px solid var(--line)}
-.preview{display:flex;gap:16px;align-items:center;margin:16px 0}
-.preview img{width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
-.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:#eee;margin-left:6px}
-.msg{color:var(--mut)}.err{color:#b3261e}
-@media(max-width:560px){form{grid-template-columns:1fr}}
+body{font:15px/1.5 system-ui,sans-serif;max-width:860px;margin:0 auto;padding:16px;color:#222}
+section{border:1px solid #ddd;margin:16px 0;padding:12px 16px}
+h1,h2,h3{margin:.3em 0}fieldset{border:1px solid #eee;margin:10px 0}label{margin-right:12px;display:inline-block}
+.badge{font-size:11px;border:1px solid #999;padding:0 6px;border-radius:9px;margin-left:6px;color:#555}
+.badge.planned{border-style:dashed}.card{border:1px solid #eee;padding:8px;margin:6px 0}
+.sw{display:inline-block;width:24px;height:24px;border:1px solid #888;vertical-align:middle;margin-right:6px}
+.err{color:#b00}.meta{color:#666;font-size:13px}img#preview{max-width:140px;display:block;margin:6px 0}
 </style></head><body>
-<header><h1>Cosmetic Recommender</h1><p class="sub">Skincare picks from a trained model. Foundation matching from a face photo.</p>
-<div class="tabs" role="tablist">
-  <button role="tab" id="t1" aria-selected="true" aria-controls="p1">Skincare</button>
-  <button role="tab" id="t2" aria-selected="false" aria-controls="p2">Makeup</button>
-</div></header>
+
+<header>
+  <h1>Cosmetic Consultation</h1>
+  <p class="meta">Tell us about your skin and colouring, optionally add a photo, and get a complete list.</p>
+</header>
 
 <main>
-<section id="p1" class="panel on" role="tabpanel" aria-labelledby="t1">
-  <form id="f1">
-    <label>Skin type<select id="skin"><option value="">Not sure</option><option>Combination</option><option>Dry</option><option>Normal</option><option>Oily</option></select></label>
-    <label>Category<select id="cat"><option value="">Any</option><option>Cleanser</option><option>Moisturizer</option><option>Treatment</option><option>Face Mask</option></select></label>
-    <label>Max price ($)<input id="price" type="number" min="0" placeholder="No limit"></label>
-    <label>Avoid ingredients<input id="avoid" placeholder="fragrance, alcohol"></label>
-    <label class="full">A product you liked (optional)<input id="liked" list="products" placeholder="Start typing a name"></label>
-    <datalist id="products"></datalist>
-    <label class="check full"><input id="sens" type="checkbox"> Sensitive skin</label>
-    <button class="go full">Recommend</button>
-  </form>
-  <div id="out1" aria-live="polite"></div>
+<!-- ============ STEP 1: PROFILE  (GET /api/v1/options fills the controls) ============ -->
+<section id="step-profile" data-endpoint="GET /api/v1/options">
+  <h2>1. Your skin</h2>
+  <label>Skin type <select id="skin_type"><option value="">Not sure</option></select></label>
+  <label>Max price per product ($) <input id="max_price" type="number" min="0" style="width:80px"></label>
+  <label><input id="sensitive" type="checkbox"> Sensitive skin</label>
+  <fieldset><legend>Concerns</legend><div id="concerns"></div></fieldset>
+  <fieldset><legend>Colour preferences</legend><div id="colour_prefs"></div></fieldset>
+  <label>Ingredients to avoid <input id="avoid" placeholder="fragrance, alcohol"></label>
 </section>
 
-<section id="p2" class="panel" role="tabpanel" aria-labelledby="t2">
-  <form id="f2">
-    <label class="full">Front-facing, well-lit face photo (analysed in memory, never stored)<input id="photo" type="file" accept="image/*"></label>
-    <label>Brand (optional)<select id="brand"><option value="">Any</option></select></label>
-    <label>Shades to show<select id="k"><option>5</option><option>8</option><option>12</option></select></label>
-    <button class="go full">Find my foundation shade</button>
-  </form>
-  <div id="out2" aria-live="polite"></div>
+<!-- ============ STEP 2: PHOTO  (POST /api/v1/face/analyze, raw image bytes) ============ -->
+<section id="step-photo" data-endpoint="POST /api/v1/face/analyze">
+  <h2>2. Photo <span class="meta">(optional, analysed in memory, never stored)</span></h2>
+  <input id="photo" type="file" accept="image/*">
+  <img id="preview" alt="" hidden>
+  <div id="photo-result" class="meta" aria-live="polite"></div>
 </section>
+
+<p><button id="go">Get my consultation</button> <span id="status" class="meta" aria-live="polite"></span></p>
+
+<!-- ============ RESULTS  (all from POST /api/v1/consult) ============ -->
+<div id="results" hidden>
+  <section id="res-profile"><h2>Your skin profile</h2><div class="body"></div></section>
+  <section id="res-skincare"><h2>Skincare <span class="badge" id="skincare-status"></span></h2><div class="body"></div></section>
+  <section id="res-makeup"><h2>Makeup</h2><div class="body"></div></section>
+  <section id="res-routine"><h2>Routine <span class="badge" id="routine-status"></span></h2><div class="body"></div></section>
+  <section id="res-shopping"><h2>Shopping list</h2><div class="body"></div></section>
+  <section id="res-product" hidden data-endpoint="GET /api/v1/products/{id}"><h2>Product detail</h2><div class="body"></div></section>
+  <p class="meta" id="disclaimer"></p>
+</div>
 </main>
 
 <script>
-const $=id=>document.getElementById(id),ids={};
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function api(url,opts){const r=await fetch(url,opts);const j=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(typeof j.detail==='string'?j.detail:'Request failed ('+r.status+')');return j}
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const badge = st => `<span class="badge ${esc(st)}">${esc(st)}</span>`;
+let face = null;   // result of /face/analyze, passed into /consult
 
-/* tabs */
-['t1','t2'].forEach((t,i)=>$(t).onclick=()=>{[0,1].forEach(n=>{
-  $('t'+(n+1)).setAttribute('aria-selected',n===i);$('p'+(n+1)).classList.toggle('on',n===i)})});
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : `Request failed (${r.status})`);
+  return j;
+}
+const checks = (id, items) => $(id).innerHTML = items.map(v =>
+  `<label><input type="checkbox" value="${esc(v)}"> ${esc(v.replace('_', ' '))}</label>`).join('');
+const picked = id => [...$(id).querySelectorAll('input:checked')].map(i => i.value);
 
-/* skincare */
-api('/skincare/products?limit=400').then(ps=>ps.forEach(p=>{const l=`${p.Product} (${p.Brand})`;ids[l]=p.Product_id;
-  const o=document.createElement('option');o.value=l;$('products').append(o)})).catch(()=>{});
-$('f1').onsubmit=async e=>{e.preventDefault();const out=$('out1');const liked=ids[$('liked').value];
-  const body={skin_type:$('skin').value||null,category:$('cat').value||null,
-    max_price:$('price').value?+$('price').value:null,sensitive:$('sens').checked,
-    avoid_ingredients:$('avoid').value.split(',').map(s=>s.trim()).filter(Boolean),
-    liked_product_ids:liked?[liked]:[],k:8};
-  out.innerHTML='<p class="msg">Loading…</p>';
-  try{const j=await api('/skincare/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-    out.innerHTML=j.count?j.results.map((p,i)=>`<div class="card"><b>${i+1}. ${esc(p.Product)}</b>
-      <span class="meta">${esc(p.Brand)} · ${esc(p.Category)} · $${esc(p.Price)}</span><div class="why">${esc(p.why)}</div></div>`).join('')
-      :'<p class="msg">No products match those filters.</p>'}
-  catch(err){out.innerHTML=`<p class="err">${esc(err.message)}</p>`}};
+/* ---- step 1: populate controls from the API ---- */
+api('/api/v1/options').then(o => {
+  o.skin_types.forEach(t => $('skin_type').add(new Option(t, t)));
+  checks('concerns', o.concerns); checks('colour_prefs', o.colour_preferences);
+}).catch(e => $('status').textContent = e.message);
 
-/* makeup */
-api('/makeup/brands').then(bs=>bs.forEach(b=>{const o=document.createElement('option');o.textContent=b;$('brand').append(o)})).catch(()=>{});
-const quality=d=>d<2?'Excellent':d<4?'Close':'Approximate';
-$('f2').onsubmit=async e=>{e.preventDefault();const out=$('out2'),f=$('photo').files[0];
-  if(!f){out.innerHTML='<p class="msg">Choose a photo first.</p>';return}
-  out.innerHTML='<p class="msg">Analysing…</p>';
-  try{const q=`?k=${$('k').value}`+($('brand').value?`&brand=${encodeURIComponent($('brand').value)}`:'');
-    const j=await api('/makeup/match-photo'+q,{method:'POST',body:f});
-    const url=URL.createObjectURL(f);
-    out.innerHTML=`<div class="preview"><img src="${url}" alt="Your photo">
-      <div><div class="meta">Measured skin colour</div><div class="shade"><span class="sw" style="background:${esc(j.face.skin_hex)}"></span>
-      <div><b>${esc(j.face.skin_hex)}</b><span class="meta">Tone: ${esc(j.face.tone)}</span></div></div></div></div>`+
-      j.matches.map(m=>`<div class="card shade"><span class="sw" style="background:${esc(m.hex)}"></span>
-        <div><b>${esc(m.brand)} · ${esc(m.product)}</b><span class="meta">${esc(m.hex)} · colour difference ${esc(m.delta_e)}</span>
-        <span class="tag">${quality(m.delta_e)}</span></div></div>`).join('')+
-      '<p class="meta">Estimated from pixel colour, so lighting matters. Treat as a shortlist.</p>'}
-  catch(err){out.innerHTML=`<p class="err">${esc(err.message)}</p>`}};
+/* ---- step 2: photo ---- */
+$('photo').onchange = async () => {
+  const f = $('photo').files[0]; face = null; $('photo-result').textContent = ''; $('preview').hidden = true;
+  if (!f) return;
+  $('preview').src = URL.createObjectURL(f); $('preview').hidden = false;
+  $('photo-result').textContent = 'Analysing…';
+  try {
+    face = await api('/api/v1/face/analyze', {method: 'POST', body: f});
+    $('photo-result').innerHTML = `<span class="sw" style="background:${esc(face.skin_hex)}"></span>Skin colour ${esc(face.skin_hex)}, tone ${esc(face.tone)}`;
+  } catch (e) { $('photo-result').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+};
+
+/* ---- consult ---- */
+$('go').onclick = async () => {
+  const body = {
+    skin_type: $('skin_type').value || null, concerns: picked('concerns'), colour_preferences: picked('colour_prefs'),
+    sensitive: $('sensitive').checked, max_price_per_item: $('max_price').value ? +$('max_price').value : null,
+    avoid_ingredients: $('avoid').value.split(',').map(s => s.trim()).filter(Boolean),
+    skin_hex: face ? face.skin_hex : null, skin_tone: face ? face.tone : null, per_category: 2,
+  };
+  $('status').textContent = 'Working…';
+  try {
+    const j = await api('/api/v1/consult', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)});
+    render(j); $('status').textContent = '';
+  } catch (e) { $('status').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+};
+
+/* ---- renderers: one per results section ---- */
+function render(j) {
+  $('results').hidden = false;
+  // profile
+  $('res-profile').querySelector('.body').innerHTML = (j.profile.concerns.length
+    ? j.profile.concerns.map(c => `<div class="card"><b>${esc(c.concern.replace('_', ' '))}</b><div class="meta">Helpful ingredients: ${esc(c.helpful_ingredients.join(', '))}</div></div>`).join('')
+    : '<p class="meta">No concerns selected.</p>') + `<p class="meta">${esc(j.profile.disclaimer)}</p>`;
+  // skincare
+  $('skincare-status').outerHTML = `<span class="badge ${esc(j.skincare_status)}" id="skincare-status">${esc(j.skincare_status)}</span>`;
+  $('res-skincare').querySelector('.body').innerHTML = Object.entries(j.skincare).map(([cat, items]) =>
+    `<h3>${esc(cat)}</h3>` + (items.map(p => `<div class="card"><b>${esc(p.name)}</b> <span class="meta">${esc(p.brand)} · $${esc(p.price)} · source: ${esc(p.source)}</span><br>
+      Score <b>${esc(p.aicosmetic_score)}</b>/100 · ${esc(p.verdict)} ${badge(p.score_status)}<div class="meta">${esc(p.why)}</div>
+      <button data-pid="${esc(p.product_id)}">Details</button></div>`).join('') || '<p class="meta">No products match.</p>')).join('');
+  // makeup
+  const m = j.makeup, sect = (name, s) => `<h3>${name} ${badge(s.status)}</h3>` + (s.items.length
+    ? s.items.map(i => `<div class="card"><span class="sw" style="background:${esc(i.hex)}"></span><b>${esc(i.brand)} ${esc(i.product)}</b> <span class="meta">${esc(i.hex)} · colour difference ${esc(i.delta_e)}</span></div>`).join('')
+    : `<p class="meta">${esc(s.note)}</p>`);
+  $('res-makeup').querySelector('.body').innerHTML = sect('Foundation', m.foundation) + sect('Lips', m.lips) + sect('Blush', m.blush) + sect('Eyes', m.eyes);
+  // routine
+  $('routine-status').outerHTML = `<span class="badge ${esc(j.routine.status)}" id="routine-status">${esc(j.routine.status)}</span>`;
+  const steps = l => '<ol>' + l.map(s => `<li>${esc(s.step)}: ${esc(s.name || 'none found')}</li>`).join('') + '</ol>';
+  $('res-routine').querySelector('.body').innerHTML = `<h3>Morning</h3>${steps(j.routine.am)}<h3>Evening</h3>${steps(j.routine.pm)}` +
+    j.routine.warnings.map(w => `<p class="meta">${esc(w)}</p>`).join('');
+  // shopping list
+  $('res-shopping').querySelector('.body').innerHTML = `<p>${j.shopping_list.items.length} products, total <b>$${esc(j.shopping_list.total_price)}</b> ${badge(j.shopping_list.status)}</p>`;
+  $('disclaimer').textContent = j.disclaimer;
+}
+
+/* ---- product detail (GET /api/v1/products/{id}) ---- */
+document.addEventListener('click', async e => {
+  const pid = e.target.dataset && e.target.dataset.pid; if (!pid) return;
+  const box = $('res-product'); box.hidden = false; box.querySelector('.body').textContent = 'Loading…';
+  try {
+    const p = await api(`/api/v1/products/${pid}`), r = p.review_summary;
+    box.querySelector('.body').innerHTML = `<b>${esc(p.name)}</b> <span class="meta">${esc(p.brand)} · ${esc(p.category)} · $${esc(p.price)}</span>
+      <p class="meta">Ingredients: ${esc(p.ingredients.join(', '))}</p>
+      <h3>Review summary ${badge(r.status)}</h3><p class="meta">${r.status === 'planned' ? 'Review summaries arrive in Phase 4.' : esc(JSON.stringify(r.themes))}</p>`;
+    box.scrollIntoView({behavior: 'smooth'});
+  } catch (err) { box.querySelector('.body').innerHTML = `<span class="err">${esc(err.message)}</span>`; }
+});
 </script></body></html>

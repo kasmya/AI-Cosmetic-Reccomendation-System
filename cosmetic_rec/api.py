@@ -11,13 +11,14 @@ from pydantic import BaseModel, Field
 from .data import SKIN_TYPES
 from .makeup import ShadeMatcher
 from .recommender import UserProfile
+from .state import state
 from .train import load
+from .v1 import router as v1_router
 from .vision import TONES, NoFaceError, decode_image, estimate_skin_tone, rgb_hex_to_lab
 
 log = logging.getLogger("cosmetic_rec.api")
 STATIC = Path(__file__).resolve().parent.parent / "static"
 MAX_IMAGE_BYTES = 5_000_000
-state: dict = {}
 
 
 @asynccontextmanager
@@ -30,6 +31,9 @@ async def lifespan(app):
 
 app = FastAPI(title="Cosmetic Recommender", version="2.0", lifespan=lifespan,
               description="Skincare recommendations (ML) and foundation shade matching (OpenCV).")
+
+
+app.include_router(v1_router)
 
 
 @app.middleware("http")
