@@ -15,13 +15,13 @@ from pydantic import BaseModel, Field
 
 from . import concerns as cx
 from . import makeup_look as ml
-from . import metrics, planner
+from . import metrics, planner, registry
 from . import routine as rt
 from .concerns import CONCERNS
 from .data import SKIN_TYPES
 from .drift import compute_drift
 from .recommender import UserProfile
-from .score import combine, confidence, review_component
+from .score import OKAY, RECOMMENDED, WEIGHTS_BASE, WEIGHTS_CONCERN, combine, confidence, review_component
 from .security import require_ops_token
 from .state import state
 from .tryon import apply_look
@@ -102,6 +102,8 @@ class ConsultRequest(BaseModel):
     max_price_per_item: float | None = Field(None, ge=0)
     total_budget: float | None = Field(None, ge=0, description="Cap on the routine's total (priced products)")
     avoid_ingredients: list[str] = []
+    liked_product_ids: list[int] = Field([], max_length=10, description="Products the user already loves: results are "
+                                         "steered towards similar ingredient lists, and these are not recommended back")
     skin_hex: str | None = Field(None, pattern=r"^#?[0-9a-fA-F]{6}$", description="From /face/analyze")
     skin_tone: str | None = Field(None, description=f"One of {TONES}")
     per_category: int = Field(2, ge=1, le=5)
@@ -480,10 +482,12 @@ def consult(req: ConsultRequest):
 
     skincare: dict[str, list[SkincareItem]] = {}
     plain: dict[str, list[dict]] = {}
+    liked = [i for i in dict.fromkeys(req.liked_product_ids) if i in rec.products.index]    # unknown ids are ignored
     for category in ("Cleanser", "Treatment", "Moisturizer"):
         profile = UserProfile(skin_type=skin_type, skin_tone=req.skin_tone, sensitive=req.sensitive,
                               concerns=active_concerns, category=category, max_price=req.max_price_per_item,
-                              avoid_ingredients=req.avoid_ingredients)
+                              avoid_ingredients=req.avoid_ingredients, liked_product_ids=liked,
+                              exclude_product_ids=liked)
         # a wide pool so budgets can be met (candidate cut-off 100 loses nothing, see evaluate.py), and the picks
         # shown to the user get the brand-diversity re-rank
         pool = rec.recommend(profile, k=30, explain=False, candidate_limit=CANDIDATE_LIMIT)
@@ -766,3 +770,70 @@ def ops_drift():
     for name, f in result["features"].items():
         metrics.DRIFT_PSI.labels(name).set(f["psi"])
     return result
+
+
+class MakeupRequest(BaseModel):
+    skin_hex: str | None = Field(None, pattern=r"^#?[0-9a-fA-F]{6}$", description="From /face/analyze or typed in")
+    skin_tone: str | None = Field(None, description=f"One of {TONES}")
+    undertone: str | None = Field(None, description="warm / neutral / cool; overrides the measured undertone")
+    colour_preferences: list[str] = []
+
+
+@router.post("/makeup/suggest", response_model=MakeupLook)
+def makeup_suggest(req: MakeupRequest):
+    """Makeup suggestions only (foundation shades, lip/blush/eye palettes): no skincare, and nothing is logged.
+    Used by the try-on studio, which works without a full consultation."""
+    _check_inputs(None, [], req.colour_preferences, req.skin_tone, req.undertone)
+    return _makeup(req)
+
+
+@router.get("/makeup/brands", response_model=list[str])
+def makeup_brands():
+    """Foundation brands in the shade data, for a brand filter."""
+    return state["shades"].brands
+
+
+class ShadeMatches(BaseModel):
+    skin_hex: str
+    brand: str | None
+    matches: list[ShadeItem]
+
+
+@router.get("/makeup/match", response_model=ShadeMatches)
+def makeup_match(hex: str = Query(..., pattern=r"^#?[0-9a-fA-F]{6}$"), brand: str | None = Query(None, max_length=60),
+                 k: int = Query(8, ge=1, le=20)):
+    """Closest real foundation shades to a skin colour, optionally within one brand (best first, one per product)."""
+    colour = hex if hex.startswith("#") else "#" + hex
+    found = state["shades"].match(rgb_hex_to_lab(colour), k=k, brand=brand)
+    rows = found[["brand", "product", "hex", "delta_e"]].to_dict("records")
+    return ShadeMatches(skin_hex=colour, brand=brand, matches=[ShadeItem(**row) for row in rows])
+
+
+# ---------------- public system status (aggregates only, no personal data) ----------------
+@router.get("/system")
+def system_status():
+    """What is running: the serving model and how it was judged, the data behind it, the pipeline, and monitoring
+    aggregates. Safe to show publicly (no photos, text or identifiers); operator-only details stay under /ops."""
+    meta, rec = state["meta"], state["rec"]
+    counts = state["db"].counts()
+    drift = compute_drift(state["db"].recent_events(2000))
+    recent = [{"at": e["at"], "event": e["event"], "version": e.get("version")} for e in registry.history()[-8:]]
+    return {
+        "model": {"version": meta.get("version", "unversioned"), "trained_at": meta.get("trained_at"),
+                  "algorithm": meta.get("model"), "holdout": meta.get("holdout"), "cv_auc": meta.get("cv_auc"),
+                  "n_train_reviews": meta.get("n_train_reviews"), "n_feedback_rows": meta.get("n_feedback_rows", 0),
+                  "review_model": meta.get("sentiment_model"), "review_auc": meta.get("sentiment_auc"),
+                  "review_accuracy": meta.get("sentiment_accuracy")},
+        "registry": {"champion": registry.champion(), "versions": len(registry.versions()), "recent": recent},
+        "data": {"products_scored": len(rec.products), "reviews": meta.get("n_reviews"),
+                 "catalog": state["catalog"].stats(), "foundation_shades": len(state["shades"].shades),
+                 "foundation_brands": len(state["shades"].brands)},
+        "pipeline": {"stages": ["hard constraints", "candidate retrieval", "ranking", "brand re-rank"],
+                     "candidate_limit": CANDIDATE_LIMIT, "max_per_brand": MAX_PER_BRAND,
+                     "score_weights": {"without_concerns": WEIGHTS_BASE, "with_concerns": WEIGHTS_CONCERN},
+                     "verdict_bands": {"recommended": RECOMMENDED, "okay": OKAY}},
+        "monitoring": {"consultations": counts["events"], "feedback_votes": counts["feedback"],
+                       "helpful_votes": counts["helpful"],
+                       "drift": {"status": drift["status"],
+                                 "features": {k: v["status"] for k, v in drift["features"].items()}}},
+    }

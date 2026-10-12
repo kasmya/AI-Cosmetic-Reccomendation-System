@@ -384,6 +384,20 @@ footer .wrap{font-family:var(--serif2);font-size:24px}
 .drawer summary{font:400 30px var(--serif2)}.disc{font-size:15px}
 .mkr{grid-template-columns:1fr auto}@media(max-width:620px){.mkr{grid-template-columns:1fr}}
 .prod>div:last-child{align-content:start}.fb{display:flex;flex-direction:column;gap:6px;align-items:flex-start}.fbb{white-space:nowrap}.fbb:disabled{opacity:.5}#res-product .fb{flex-direction:row;gap:var(--s3)}.tlink[data-fbp]{background:none;border:0;cursor:pointer;padding:0;font:500 12px var(--sans);letter-spacing:.1em;text-transform:uppercase}
+.vh{position:absolute;width:1px;height:1px;opacity:0}
+.faces-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.faces-mini button{border:0;background:none;padding:0;cursor:pointer}
+.faces-mini img{width:100%;aspect-ratio:4/5;object-fit:cover;outline:1px solid var(--rule)}.faces-mini button:hover img{outline-color:var(--ink)}.faces-mini button[aria-pressed=true] img{outline:3px solid var(--coral);outline-offset:2px}
+.trow{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:start;padding:10px 0;border-bottom:1px solid var(--rule)}.trow .lab{padding-top:10px}
+.tsws{display:flex;flex-wrap:wrap;gap:8px}.tsw{width:38px;height:38px;border:1px solid rgba(32,32,30,.3);cursor:pointer;padding:0;position:relative;background:transparent}
+.tsw[aria-pressed=true]{outline:3px solid var(--ink);outline-offset:2px}.tsw.none{display:grid;place-items:center;font:11px var(--sans);width:auto;padding:0 12px}.tsw:hover{transform:translateY(-1px)}
+.tname{display:block;font-size:13px;margin-top:6px;color:var(--graphite);width:100%}
+.sysg{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4)}.sysc{border-top:1px solid var(--ink);padding-top:var(--s2)}.sysc h3{font:400 28px/1.1 var(--serif2);margin:0 0 8px}
+.sysc dl.kv dd{font-size:15px}.sysc p{margin:8px 0}.syshist{font:12px var(--mono);color:var(--graphite);margin:0;padding:0;list-style:none}
+.drift-stable{color:#1d6b3b}.drift-moderate{color:#a86a00}.drift-significant{color:var(--berry)}
+.liked-hit{font:500 13px var(--sans)}.chip button.add{all:unset;cursor:pointer;display:block;padding:8px 14px;border:1px solid var(--ink);font-size:13px}.chip button.add:hover{background:var(--blush)}
+@media(max-width:900px){.sysg{grid-template-columns:1fr}.trow{grid-template-columns:1fr}.trow .lab{padding-top:0}}
+@media print{.topline,.hero,.stages,.creds,#demo,#consultation,#studio,#moment,#index,#check,#how,footer,.deco,#morph,#prog,.conn,#res-product,.btn,.tlink,.fb,#save-edit,#print-edit{display:none!important}
+ body{background:#fff}#results{display:block!important}.res,.band{border-color:#999}[data-r]{opacity:1!important;transform:none!important;clip-path:none!important}.prod,.mk{break-inside:avoid}}
 /* ===== answer animations ===== */
 @keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
 @keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
@@ -470,6 +484,7 @@ ol.tl.go li.spf::before{animation:pop .7s var(--ease) both;animation-delay:calc(
   <div class="fields">
    <div class="f"><label class="t" for="skin_type">What is your skin type?</label><select id="skin_type"><option value="">Not sure</option></select></div>
    <div class="f"><label class="check"><input id="sensitive" type="checkbox"> I have sensitive skin</label><p class="hint">Sensitive skin switches your sunscreen to mineral-only. You will see that on the sunscreen pick in your skincare results.</p></div>
+   <div class="f"><label class="t" for="liked_q">Products you already love (optional)</label><input id="liked_q" type="text" placeholder="Search by name or brand" autocomplete="off" aria-describedby="liked-h"><div id="liked_results" class="chips" style="margin-top:8px" aria-live="polite"></div><div id="liked_tags" class="chips" style="margin-top:10px"></div><p class="hint" id="liked-h">We use their ingredient lists to find similar products, and we will not recommend them back. Up to 10. This was the strongest signal in our own testing.</p></div>
   </div>
   <div class="navrow"><button class="btn pri" data-go="1" type="button">Continue to the skin quiz</button></div>
  </section>
@@ -499,6 +514,7 @@ ol.tl.go li.spf::before{animation:pop .7s var(--ease) both;animation-delay:calc(
    <div class="f"><label class="t" for="total_budget">Total budget for the whole edit</label><input id="total_budget" type="range" min="0" max="500" step="10" value="0" style="width:100%;accent-color:var(--cobalt)"><p class="hint" id="budget-out" aria-live="polite">No total limit</p></div>
    <div class="f"><label class="t" for="max_price">Maximum price per product ($)</label><input id="max_price" type="number" min="0" inputmode="decimal" placeholder="No limit"></div>
    <div class="f"><label class="t" for="avoid_in">Ingredients to avoid</label><input id="avoid_in" type="text" placeholder="fragrance, alcohol" aria-describedby="avoid-h"><input id="avoid" type="hidden"><div id="avoid_tags" class="chips" style="margin-top:10px"></div><p class="hint" id="avoid-h">Type an ingredient and press Enter or comma to add it. Remove a tag with its button.</p></div>
+   <div class="f"><label class="t" for="per_cat">Products per category</label><select id="per_cat"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select><p class="hint">How many options to show for cleanser, treatment and moisturiser. Your routine uses the best fit within your budget.</p></div>
   </div>
   <div class="navrow"><button class="btn pri" data-go="4" type="button">Continue to photo</button><button class="tlink" data-go="2" type="button" style="background:none;border:0;cursor:pointer">Back</button></div>
  </section>
@@ -518,6 +534,7 @@ ol.tl.go li.spf::before{animation:pop .7s var(--ease) both;animation-delay:calc(
      </div>
     </div>
     <div class="f" style="margin-top:var(--s3)"><label class="t" for="undertone">Undertone override</label><select id="undertone"><option value="">Use the estimate</option></select><p class="hint">Lighting and camera processing affect the estimate. If you know your undertone, set it here and it will be used instead.</p></div>
+    <div class="f" style="margin-top:var(--s3)"><label class="t" for="tone_sel">No photo? Tell us your tone</label><div class="row2"><select id="tone_sel"><option value="">Not set</option></select><input id="hex_in" type="text" placeholder="#c68642 (optional)" maxlength="7" autocomplete="off" aria-label="Skin colour as a hex code" aria-describedby="tone-h"></div><p class="hint" id="tone-h">Without a photo, a tone gives lip, blush and eye suggestions. A skin colour hex code also lets us match real foundation shades. If you add a photo, it is used instead.</p></div>
    </div>
   </div>
   <div class="navrow"><button class="btn pri" data-go="5" type="button">Review your selections</button><button class="btn" data-go="5" type="button" id="skip">Continue without a photo</button><button class="tlink" data-go="3" type="button" style="background:none;border:0;cursor:pointer">Back</button></div>
@@ -539,7 +556,7 @@ ol.tl.go li.spf::before{animation:pop .7s var(--ease) both;animation-delay:calc(
 
 <!-- ================= RESULTS ================= -->
 <div id="results" hidden><div class="wrap">
- <section class="band" style="border:0;padding-bottom:0" aria-labelledby="eh"><div class="sechead"><h2 id="eh" class="disp">Your beauty edit</h2><p id="edit-sum"></p></div></section>
+ <section class="band" style="border:0;padding-bottom:0" aria-labelledby="eh"><div class="sechead"><h2 id="eh" class="disp">Your beauty edit</h2><div><p id="edit-sum"></p><p style="margin-top:var(--s2);display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center"><button class="btn sm" id="save-edit" type="button">Save my edit (.txt)</button><button class="btn sm" id="print-edit" type="button">Print</button><span class="meta" id="edit-time"></span></p></div></div></section>
  <section id="res-profile" class="res"><div class="hd"><div><span class="no">01</span><h2>Your profile</h2></div><div class="body"></div></div></section>
  <section id="res-skincare" class="res"><div class="hd"><div><span class="no">02</span><h2>Skincare</h2><span class="status" id="skincare-status"></span></div><div class="body"></div></div></section>
  <section id="res-routine" class="res"><div class="hd"><div><span class="no">03</span><h2>Your routine</h2><span class="status" id="routine-status"></span></div><div class="body"></div></div></section>
@@ -550,15 +567,25 @@ ol.tl.go li.spf::before{animation:pop .7s var(--ease) both;animation-delay:calc(
 </div></div>
 
 <!-- ================= PHOTO MOMENT: TRY-ON ================= -->
-<section class="band" id="moment" aria-labelledby="mh"><div class="wrap">
- <div class="sechead"><h2 id="mh" class="disp">Try the shades on</h2><p>Your photo with the suggested lip, blush and foundation applied. This is a preview, not a promise of a match. Lighting and camera processing change how colour appears.</p></div>
+<section class="band" id="moment" aria-labelledby="mh"><div class="wrap" data-endpoint="POST /api/v1/makeup/suggest · POST /api/v1/makeup/tryon">
+ <div class="sechead"><h2 id="mh" class="disp">Try the shades on</h2><p>Choose a photo, pick a shade for each feature and see it applied. This works on its own: you do not need to finish the consultation first. It is a preview, not a promise of a match. Lighting and camera processing change how colour appears.</p></div>
  <div class="mgrid2">
-  <div><div class="tstage"><img id="timg" alt="Your photo with the suggested shades applied" hidden><span id="tph">Add a photo and generate your recommendations to preview shades here.</span></div>
-   <div class="tbar"><div class="seg" role="group" aria-label="Before and after"><button type="button" id="t-before" aria-pressed="false">Before</button><button type="button" id="t-after" aria-pressed="true">After</button></div><span class="mono" id="t-lab"></span></div></div>
+  <div>
+   <div class="tstage"><img id="timg" alt="Your photo with the chosen shades applied" hidden><span id="tph">Choose a photo to begin.</span></div>
+   <div class="tbar"><div class="seg" role="group" aria-label="Before and after"><button type="button" id="t-before" aria-pressed="false">Before</button><button type="button" id="t-after" aria-pressed="true">After</button></div><span class="mono" id="t-lab"></span><a class="btn sm" id="t-save" download="shade-preview.jpg" hidden>Download</a></div>
+  </div>
   <div class="fields">
-   <fieldset class="f"><legend>Apply</legend><div class="chips" id="t-parts"></div><p class="hint">Shades come from your top suggestions in the colour studio.</p></fieldset>
-   <div class="f"><label class="t" for="strength">Strength</label><input id="strength" type="range" min="0.2" max="1" step="0.05" value="0.6" style="width:100%;accent-color:var(--cobalt)"><p class="hint" id="strength-out">60%</p></div>
-   <div><button class="btn pri" id="t-go" type="button">Apply to my photo</button></div>
+   <fieldset class="f"><legend>1. Photo</legend>
+    <div class="faces-mini" id="t-samples" role="group" aria-label="Sample photos">
+     <button type="button" data-sample="1" aria-pressed="false" aria-label="Use sample face 1, fair"><img src="assets/demo-face-1.jpg" alt="Sample face 1"></button>
+     <button type="button" data-sample="2" aria-pressed="false" aria-label="Use sample face 2, medium"><img src="assets/demo-face-2.jpg" alt="Sample face 2"></button>
+     <button type="button" data-sample="3" aria-pressed="false" aria-label="Use sample face 3, deep"><img src="assets/demo-face-3.jpg" alt="Sample face 3"></button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><label class="btn sm" for="t-file" id="t-pick" tabindex="0" role="button">Upload your own</label><input id="t-file" type="file" accept="image/*" class="vh"><button class="btn sm" id="t-mine" type="button" hidden>Use my consultation photo</button></div>
+    <p class="hint" id="t-read">Photos are analysed in memory and never stored.</p></fieldset>
+   <fieldset class="f" id="t-shades" hidden><legend>2. Shades</legend><div id="t-rows"></div><p class="hint">Eye shades cannot be previewed: there is no eyelid detection. Foundation changes the face only, not the neck.</p></fieldset>
+   <div class="f"><label class="t" for="strength">3. Strength</label><input id="strength" type="range" min="0.2" max="1" step="0.05" value="0.6" style="width:100%;accent-color:var(--cobalt)"><p class="hint" id="strength-out">60%</p></div>
+   <div><button class="btn pri" id="t-go" type="button" disabled>Apply shades</button></div>
    <p id="t-status" class="meta" aria-live="polite"></p>
   </div>
  </div>
@@ -584,11 +611,11 @@ ol.tl.go li.spf::before{animation:pop .7s var(--ease) both;animation-delay:calc(
  <div id="rc-out" aria-live="polite" style="margin-top:var(--s3)"></div>
 </div></section>
 </main>
-<section class="band" id="how"><div class="wrap"><details class="drawer"><summary>How this works</summary>
- <div class="two" style="margin-top:var(--s3)"><div><h3>The numbers</h3><dl class="kv" style="margin-top:8px"><dt>Review sentiment model</dt><dd class="mono" id="hw-sent">0.956 AUC</dd><dt>Product score</dt><dd class="mono" id="hw-score">about 0.6</dd><dt>Model version</dt><dd class="mono" id="hw-ver">n/a</dd></dl><p class="hint">The product score performs about as well as the site's own star rating, but it is calibrated and every point is explained in the breakdown.</p></div>
- <div><h3>What to keep in mind</h3><p class="meta">Skin colour, depth, undertone and tone from a photo are estimates. Confidence is low, and lighting changes the result. Colour-difference ratings show how close a shade is to the estimate, not a guarantee. Ingredient and concern guidance is not medical advice.</p></div></div>
-</details></div></section>
-<footer><div class="wrap meta">The Colour Atelier. Beauty, considered in colour. Recommendations are informational and colour estimates depend on lighting.</div></footer>
+<section class="band" id="how" aria-labelledby="oh"><div class="wrap" data-endpoint="GET /api/v1/system">
+ <div class="sechead"><h2 id="oh" class="disp">Under the hood</h2><p>What is running behind your edit, how it was tested, and where it falls short. Read live from the server.</p></div>
+ <div id="system-body"><span class="meta"><span class="load"></span>Loading…</span></div>
+</div></section>
+<footer><div class="wrap meta">The Colour Atelier. Beauty, considered in colour. Recommendations are informational and colour estimates depend on lighting. Product data: Open Beauty Facts (ODbL, CC BY-SA). Foundation shades: The Pudding, Beauty Brawl (2018). Reviews: dataset from the original project.</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
 <script>
@@ -607,6 +634,7 @@ async function api(url, opts) {
   let r;
   try { r = await fetch(API_BASE + url, opts); }
   catch (_) { const e = new Error('Could not reach the server. Check that it is running and reload the page.'); e.status = 0; throw e; }
+  api.ms = r.headers.get('X-Process-Time-ms');   // the server reports how long the work took
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error(detailOf(j) || `Request failed (${r.status})`); e.status = r.status; throw e; }
   return j;
@@ -656,9 +684,30 @@ const nice = v => String(v).replace(/_/g, ' ');
 
 api('/api/v1/options').then(o => {
   o.skin_types.forEach(t => $('skin_type').add(new Option(nice(t), t)));
-  (o.undertones || []).forEach(u => $('undertone').add(new Option(nice(u), u))); TONES = o.tones || [];
+  (o.undertones || []).forEach(u => $('undertone').add(new Option(nice(u), u))); TONES = o.tones || []; TONES.forEach(t => $('tone_sel').add(new Option(t, t)));
   checks('concerns', o.concerns); checks('colour_prefs', o.colour_preferences);
 }).catch(e => { $('concerns').innerHTML = `<span class="err" role="alert">Could not load options: ${esc(e.message)}</span>`; });
+
+/* ---- products you already love: GET /api/v1/catalog/search (Sephora products), sent as liked_product_ids ---- */
+let liked = [], likedTimer = null;
+const drawLiked = () => { $('liked_tags').innerHTML = liked.map((x, k) => `<span class="chip"><span style="padding:6px 12px;display:flex;gap:8px;align-items:center">${esc(x.name)}<button type="button" data-rml="${k}" aria-label="Remove ${esc(x.name)}" style="border:0;background:none;cursor:pointer;font-size:16px;line-height:1">×</button></span></span>`).join('');
+  $('liked_tags').querySelectorAll('[data-rml]').forEach(b => b.onclick = () => { liked.splice(+b.dataset.rml, 1); drawLiked(); }); };
+async function searchLiked() {
+  const q = $('liked_q').value.trim(), out = $('liked_results');
+  if (q.length < 2) { out.innerHTML = ''; return; }
+  try {
+    const rows = await api('/api/v1/catalog/search?' + new URLSearchParams({q, source: 'sephora_reviews', limit: 6}));
+    out.innerHTML = rows.length ? rows.map(r => `<span class="chip"><button class="add" type="button" data-addl="${esc(r.product_uid.split(':')[1])}" data-name="${esc(r.name)}">+ ${esc(r.name)} (${esc(r.brand || 'unknown brand')})</button></span>`).join('') : '<span class="meta">No matching products.</span>';
+    out.querySelectorAll('[data-addl]').forEach(b => b.onclick = () => { const id = +b.dataset.addl; if (liked.length < 10 && !liked.find(x => x.id === id)) liked.push({id, name: b.dataset.name}); drawLiked(); $('liked_q').value = ''; out.innerHTML = ''; });
+  } catch (e) { out.innerHTML = `<span class="err" role="alert">${esc(e.message)}</span>`; }
+}
+$('liked_q').oninput = () => { clearTimeout(likedTimer); likedTimer = setTimeout(searchLiked, 300); };
+
+/* ---- no photo: a tone and/or a skin colour typed in ---- */
+const manualTone = () => $('tone_sel').value;
+const manualHex = () => { const v = $('hex_in').value.trim(); return /^#?[0-9a-f]{6}$/i.test(v) ? (v.startsWith('#') ? v : '#' + v).toLowerCase() : null; };
+const skinHex = () => face ? face.skin_hex : manualHex();
+$('hex_in').oninput = () => { const v = $('hex_in').value.trim(), bad = v && !manualHex(); $('hex_in').setAttribute('aria-invalid', !!bad); $('tone-h').classList.toggle('err', !!bad); };
 
 /* ---- skin quiz: GET /api/v1/skin/questionnaire, POST /api/v1/skin/assess ---- */
 let assessed = null;
@@ -685,13 +734,15 @@ function buildReview() {
   const answered = Object.keys(answers()).length, hints = face && face.hints;
   const rows = [
     ['Skin type', ($('skin_type').value ? $('skin_type').selectedOptions[0].text : answered ? 'Not set (the quiz will decide)' : 'Not sure') + ($('sensitive').checked ? ', sensitive (mineral-only sunscreen)' : ''), 0],
+    ['Products you love', liked.length ? liked.map(x => x.name).join(', ') : 'None added', 0],
     ['Skin quiz', answered ? answered + ' of ' + document.querySelectorAll('#quiz select').length + ' answered' : 'Skipped', 1],
     ['Concerns', picked('concerns').map(nice).join(', ') || 'None selected', 2],
     ['Colour preferences', picked('colour_prefs').map(nice).join(', ') || 'None selected', 2],
     ['Total budget', tb ? '$' + tb : 'No total limit', 3],
     ['Maximum price', $('max_price').value ? '$' + $('max_price').value + ' per product' : 'No limit', 3],
     ['Avoiding', avoid.join(', ') || 'Nothing specified', 3],
-    ['Photo', face ? `Skin colour ${face.skin_hex}, tone ${face.tone} (estimate)` + (hints ? ', photo hints included (low confidence)' : '') : 'No photo, colour estimate skipped', 4],
+    ['Options per category', $('per_cat').value, 3],
+    ['Photo', face ? `Skin colour ${face.skin_hex}, tone ${face.tone} (estimate)` + (hints ? ', photo hints included (low confidence)' : '') : manualTone() || manualHex() ? 'No photo, using your ' + [manualTone(), manualHex()].filter(Boolean).join(' and ') : 'No photo, colour estimate skipped', 4],
     ['Undertone', $('undertone').value ? nice($('undertone').value) + ' (your override)' : face && face.undertone ? face.undertone + ' (estimate)' : 'Not set', 4]];
   $('rev').innerHTML = rows.map(r => `<div><span class="lab">${esc(r[0])}</span><span>${esc(r[1])}</span><button class="tlink" style="background:none;border:0;cursor:pointer" type="button" data-edit="${r[2]}" aria-label="Edit ${esc(r[0])}">Edit</button></div>`).join('');
   $('rev').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => show(+b.dataset.edit));
@@ -728,13 +779,14 @@ $('go').onclick = async () => {
     sensitive: $('sensitive').checked, max_price_per_item: $('max_price').value ? +$('max_price').value : null,
     avoid_ingredients: $('avoid').value.split(',').map(s => s.trim()).filter(Boolean),
     total_budget: +$('total_budget').value || null, undertone: $('undertone').value || null,
-    skin_hex: face ? face.skin_hex : null, skin_tone: face ? face.tone : null, per_category: 2,
+    skin_hex: skinHex(), skin_tone: face ? face.tone : (manualTone() || null), per_category: +$('per_cat').value || 2,
+    liked_product_ids: liked.map(x => x.id),
     answers: answers(), photo_hints: face ? face.hints : null,
   };
   $('go').disabled = true; $('status').innerHTML = '<span class="load"></span>Preparing your edit…';
   try {
     const j = await api('/api/v1/consult', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)});
-    render(j, body); $('status').textContent = 'Your edit is ready below.';
+    render(j, body); $('status').textContent = 'Your edit is ready below.'; $('edit-time').textContent = api.ms ? 'Computed in ' + api.ms + ' ms on the server.' : '';
     goTo($('results'));
   } catch (e) { $('status').innerHTML = `<span class="err" role="alert">${esc(e.message)}</span>`; }
   $('go').disabled = false;
@@ -773,7 +825,8 @@ function render(j, body) {
   const L = x => x == null ? [] : Array.isArray(x) ? x.map(v => typeof v === 'string' ? v : (v.text || v.reason || JSON.stringify(v))) : [String(x)];
   const mk = j.makeup || {}, hints = face && face.hints;
   const meta = [['Skin type', skin ? nice(skin) + (P.skin_type_source ? ' (' + P.skin_type_source + ')' : '') : 'Not specified'], ['Sensitivity', body.sensitive ? 'Sensitive, mineral-only sunscreen' : 'Not flagged'],
-    ['Avoiding', body.avoid_ingredients.join(', ') || 'None'], ['Skin colour (estimate)', face ? face.skin_hex : 'No photo'], ['Tone (estimate)', face ? face.tone : 'No photo']];
+    ['Avoiding', body.avoid_ingredients.join(', ') || 'None'], ['Skin colour', face ? face.skin_hex + ' (estimate)' : manualHex() ? manualHex() + ' (you entered)' : 'No photo'], ['Tone', face ? face.tone + ' (estimate)' : manualTone() ? manualTone() + ' (you chose)' : 'No photo']];
+  if (liked.length) meta.push(['Products you love', liked.map(x => x.name).join(', ')]);
   if (mk.depth) meta.push(['Depth and undertone', `${mk.depth}, ${mk.undertone} (${mk.undertone_basis})`]);
   if (hints) meta.push(['Photo hints (low confidence)', `redness ${hints.redness.level}, shine ${hints.shine.level}, blemishes ${hints.blemishes.level}`]);
   $('res-profile').querySelector('.body').innerHTML = `<p class="note disc"><b>Not medical advice.</b> ${esc(P.disclaimer)}</p><dl class="kv" style="margin:var(--s3) 0">${meta.map(m => `<dt>${esc(m[0])}</dt><dd>${esc(m[1])}</dd>`).join('')}</dl>` +
@@ -824,13 +877,23 @@ function render(j, body) {
 }
 
 /* ---- colour studio ---- */
+let fdBrand = '', fdK = 5, fdBrands = null;
+api('/api/v1/makeup/brands').then(b => { fdBrands = b; if (studioData) renderStudio(); }).catch(() => {});
+/* GET /api/v1/makeup/match: real foundation shades for the skin colour, optionally within one brand */
+async function refreshFoundation() {
+  fdBrand = $('fd-brand').value; fdK = +$('fd-k').value; $('fd-msg').textContent = 'Updating…';
+  const q = new URLSearchParams({hex: skinHex(), k: fdK}); if (fdBrand) q.set('brand', fdBrand);
+  try { const j = await api('/api/v1/makeup/match?' + q); studioData.foundation = {...studioData.foundation, items: j.matches, status: 'live', note: j.matches.length ? '' : 'No shades found for this brand.'}; picked1 = null; lay = true; renderStudio(); }
+  catch (e) { $('fd-msg').textContent = e.message; }
+}
 function renderStudio() {
   const box = $('studio-body'), mk = studioData || {};
-  const skin = face ? `<div style="display:flex;gap:var(--s2);align-items:center;margin-bottom:var(--s4);border-top:1px solid var(--ink);padding-top:var(--s2)"><span class="sw" style="width:72px;height:72px;background:${hexOk(face.skin_hex) ? esc(face.skin_hex) : 'transparent'}"></span><dl class="kv"><dt>Your colour profile</dt><dd></dd><dt>Estimated skin colour</dt><dd class="mono">${esc(face.skin_hex)}</dd><dt>Tone estimate</dt><dd>${esc(face.tone)}</dd>${mk.depth ? `<dt>Depth and undertone</dt><dd>${esc(mk.depth)}, ${esc(mk.undertone)} (${esc(mk.undertone_basis)})</dd>` : ''}<dt>Source</dt><dd>Your photo, estimated</dd></dl></div>` : '';
+  const skin = !face && manualHex() ? `<div style="display:flex;gap:var(--s2);align-items:center;margin-bottom:var(--s4);border-top:1px solid var(--ink);padding-top:var(--s2)"><span class="sw" style="width:72px;height:72px;background:${esc(manualHex())}"></span><dl class="kv"><dt>Your colour profile</dt><dd></dd><dt>Skin colour</dt><dd class="mono">${esc(manualHex())}</dd>${manualTone() ? `<dt>Tone you chose</dt><dd>${esc(manualTone())}</dd>` : ''}${mk.depth ? `<dt>Depth and undertone</dt><dd>${esc(mk.depth)}, ${esc(mk.undertone)} (${esc(mk.undertone_basis)})</dd>` : ''}<dt>Source</dt><dd>The colour you entered</dd></dl></div>` : face ? `<div style="display:flex;gap:var(--s2);align-items:center;margin-bottom:var(--s4);border-top:1px solid var(--ink);padding-top:var(--s2)"><span class="sw" style="width:72px;height:72px;background:${hexOk(face.skin_hex) ? esc(face.skin_hex) : 'transparent'}"></span><dl class="kv"><dt>Your colour profile</dt><dd></dd><dt>Estimated skin colour</dt><dd class="mono">${esc(face.skin_hex)}</dd><dt>Tone estimate</dt><dd>${esc(face.tone)}</dd>${mk.depth ? `<dt>Depth and undertone</dt><dd>${esc(mk.depth)}, ${esc(mk.undertone)} (${esc(mk.undertone_basis)})</dd>` : ''}<dt>Source</dt><dd>Your photo, estimated</dd></dl></div>` : '';
   if (!studioData) { if (skin) box.innerHTML = skin + '<p class="meta">Generate recommendations to see matching shades.</p>'; return; }
   const cats = [['foundation', 'Foundation'], ['lips', 'Lips'], ['blush', 'Blush'], ['eyes', 'Eyes']];
   const sec = studioData[studioCat], list = shadeList(sec, studioCat), prods = sec.products || [];
   box.innerHTML = skin + `<div class="palette"><div><div class="tabs" role="tablist" aria-label="Shade category">${cats.map(c => `<button role="tab" aria-selected="${c[0] === studioCat}" data-cat="${c[0]}">${c[1]} <span class="mono">${shadeList(studioData[c[0]], c[0]).length}</span></button>`).join('')}</div>
+    ${studioCat === 'foundation' && skinHex() && fdBrands ? `<div class="row2" style="margin-bottom:var(--s3)"><div class="f"><label class="t" for="fd-brand">Brand</label><select id="fd-brand"><option value="">All brands</option>${fdBrands.map(b => `<option value="${esc(b)}"${b === fdBrand ? ' selected' : ''}>${esc(b)}</option>`).join('')}</select></div><div class="f"><label class="t" for="fd-k">Shades to show</label><select id="fd-k">${[5, 10, 20].map(n => `<option${n === fdK ? ' selected' : ''}>${n}</option>`).join('')}</select><p class="hint" id="fd-msg" role="status"></p></div></div>` : ''}
     ${list.length ? `<div class="grid-sw${lay ? ' lay' : ''}">${list.map((i, k) => `<button class="swb" style="--i:${k}" data-k="${k}" aria-pressed="${picked1 === k}"><span class="chipc" style="background:${hexOk(i.hex) ? esc(i.hex) : 'transparent'}"></span><span class="nm">${esc(i.product)}</span><span class="mono">${esc(i.hex)}</span></button>`).join('')}</div>` : `<p class="note">${esc(sec.note || 'No shades in this category.')}</p>`}
     ${prods.length ? `<p class="lab" style="margin-top:var(--s3)">Catalog products with a matching colour word</p>${prods.map(m => `<div class="mk" style="grid-template-columns:1fr"><div><b>${esc(m.name)}</b> <span class="meta">${esc(m.brand || 'unknown brand')} · ${esc(m.source)} · matched on ${esc((m.matched_on || []).join(', '))}</span> ${ext(m.url, 'Source page')}</div></div>`).join('')}` : ''}
     <p class="hint" style="margin-top:var(--s3)">Status: ${esc(sec.status)}${studioData.demo ? ' · Demo swatches are approximate on-screen colours, not manufacturer values.' : studioCat === 'foundation' ? ' · Real foundation shades, ranked by colour difference to your photo.' : ' · Colour-harmony suggestions from your undertone and preferences, not manufacturer shades.'}</p></div>
@@ -839,6 +902,7 @@ function renderStudio() {
   box.querySelectorAll('.swb').forEach(b => b.onclick = () => { picked1 = +b.dataset.k; renderStudio(); });
   const ab = box.querySelector('[data-cmp]'); if (ab) ab.onclick = () => { const i = list[picked1], key = studioCat + '|' + i.brand + '|' + i.product + '|' + i.hex; if (!cmp.find(c => c.key === key)) cmp.push({key, cat: studioCat, ...i}); if (cmp.length > 4) cmp.shift(); renderStudio(); };
   const sh = box.querySelector('[data-shop]'); if (sh) sh.onclick = () => shopShade(list[picked1], sh);
+  const fb = box.querySelector('#fd-brand'); if (fb) fb.onchange = box.querySelector('#fd-k').onchange = refreshFoundation;
   drawCmp();
 }
 function detail(list) {
@@ -1010,36 +1074,79 @@ if (lenis) window.goTo = el => lenis.scrollTo(el, {offset:-72, duration:1.4});
   measure(); requestAnimationFrame(frame);
 })();
 
-/* ---- try-on: POST /api/v1/makeup/tryon?foundation_hex=&lips_hex=&blush_hex=&strength= (photo bytes in, JPEG out) ---- */
+/* ---- try-on studio: POST /api/v1/makeup/suggest (shades for a photo) and POST /api/v1/makeup/tryon (photo in, JPEG out) ---- */
 const TRYON = window.TRYON_URL || '/api/v1/makeup/tryon';
-let tOriginal = null, tResult = null;
-const tParts = () => [['foundation', 'Foundation'], ['lips', 'Lips'], ['blush', 'Blush']].map(([k, l]) => [k, l, shadeList(studioData && studioData[k], k)[0]]).filter(p => p[2] && hexOk(p[2].hex));
-function updateMoment() {
-  const parts = tParts(), box = $('t-parts');
-  box.innerHTML = parts.length ? parts.map(p => `<label class="chip"><input type="checkbox" value="${p[0]}" checked><span>${p[1]} <span class="mono">${esc(p[2].hex)}</span></span></label>`).join('') : '<span class="meta">No shades yet. Generate recommendations first.</span>';
-  const ok = photoFile && parts.length; $('t-go').disabled = !ok;
-  if (photoFile && !tOriginal) { tOriginal = URL.createObjectURL(photoFile); }
-  if (!photoFile) { tOriginal = null; tResult = null; }
-  $('timg').hidden = !photoFile; $('tph').hidden = !!photoFile; if (photoFile) { $('timg').src = tResult && $('t-after').getAttribute('aria-pressed') === 'true' ? tResult : tOriginal; }
-  $('t-status').textContent = !photoFile ? 'Try-on needs your own photo. The live demo faces cannot be tried on.' : !parts.length ? 'Generate your recommendations to unlock the try-on.' : '';
+const T_ROWS = [['foundation', 'Foundation'], ['lips', 'Lips'], ['blush', 'Blush']];
+let tFile = null, tOrig = null, tResult = null, tFace = null, tMk = null, tPick = {foundation: 0, lips: 0, blush: 0};
+let tAuto = false, tTimer = null, tSeq = 0, tBusy = false, tPending = false, tFromConsult = false;
+const tErr = e => e.status === 422 ? 'No face found in this photo. Try a front-facing, evenly lit photo with your whole face in view.' : e.status === 400 ? 'That file could not be read as an image.' : e.status === 413 ? 'That photo is over 5 MB. Choose a smaller one.' : esc(e.message);
+const tShow = after => { $('t-after').setAttribute('aria-pressed', after); $('t-before').setAttribute('aria-pressed', !after); if (tFile) $('timg').src = after && tResult ? tResult : tOrig; $('t-lab').textContent = !tFile ? '' : after && tResult ? 'After, preview' : 'Before, original photo'; };
+function tReset(msg) {
+  tSeq++; tFile = null; tFace = null; tMk = null; tAuto = false; clearTimeout(tTimer);
+  if (tOrig) URL.revokeObjectURL(tOrig); if (tResult) URL.revokeObjectURL(tResult); tOrig = tResult = null;
+  $('timg').hidden = true; $('tph').hidden = false; $('t-shades').hidden = true; $('t-go').disabled = true; $('t-save').hidden = true;
+  $('t-read').textContent = msg || 'Photos are analysed in memory and never stored.'; $('t-lab').textContent = ''; $('t-status').textContent = '';
+  document.querySelectorAll('#t-samples button').forEach(b => b.setAttribute('aria-pressed', 'false'));
 }
-const tShow = after => { $('t-after').setAttribute('aria-pressed', after); $('t-before').setAttribute('aria-pressed', !after); if (photoFile) $('timg').src = after && tResult ? tResult : tOriginal; $('t-lab').textContent = after && tResult ? 'After, preview' : 'Before, original photo'; };
-$('t-before').onclick = () => tShow(false); $('t-after').onclick = () => tShow(true);
-$('strength').oninput = () => $('strength-out').textContent = Math.round($('strength').value * 100) + '%';
-$('t-go').onclick = async () => {
-  const on = [...$('t-parts').querySelectorAll('input:checked')].map(i => i.value);
-  if (!on.length) { $('t-status').textContent = 'Choose at least one shade to apply.'; return; }
-  const q = new URLSearchParams({strength: $('strength').value}); tParts().forEach(p => { if (on.includes(p[0])) q.set(p[0] + '_hex', p[2].hex); });
-  $('t-go').disabled = true; $('t-status').innerHTML = '<span class="load"></span>Applying shades…';
+async function tUse(blob, opts = {}) {
+  tReset(); const my = tSeq; tFile = blob; tFromConsult = !!opts.fromConsult;
+  tOrig = URL.createObjectURL(blob); $('timg').src = tOrig; $('timg').hidden = false; $('tph').hidden = true; tShow(false);
+  if (opts.sample) document.querySelector(`#t-samples [data-sample="${opts.sample}"]`).setAttribute('aria-pressed', 'true');
+  $('t-read').innerHTML = '<span class="load"></span>Reading your colouring…';
   try {
-    let r; try { r = await fetch(API_BASE + TRYON + '?' + q, {method: 'POST', body: photoFile}); } catch (_) { const e = new Error('Could not reach the server.'); e.status = 0; throw e; }
+    const f = opts.face || await api('/api/v1/face/analyze', {method: 'POST', body: blob}); if (my !== tSeq) return; tFace = f;
+    const mk = opts.makeup || await api('/api/v1/makeup/suggest', {method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({skin_hex: f.skin_hex, skin_tone: f.tone, undertone: $('undertone').value || null, colour_preferences: picked('colour_prefs')})});
+    if (my !== tSeq) return; tMk = mk; tPick = {foundation: 0, lips: 0, blush: 0};
+    $('t-read').innerHTML = `Detected: tone <b>${esc(f.tone)}</b>, depth ${esc(f.depth)}, undertone ${esc(f.undertone)}. These are estimates.`;
+    drawTRows(); $('t-shades').hidden = false; $('t-go').disabled = false;
+  } catch (e) { if (my === tSeq) $('t-read').innerHTML = `<span class="err" role="alert">${tErr(e)}</span>`; }
+}
+function drawTRows() {
+  $('t-rows').innerHTML = T_ROWS.map(([k, label]) => { const list = shadeList(tMk[k], k), i = tPick[k], cur = list[i];
+    return `<div class="trow"><span class="lab">${label}</span><div><div class="tsws" role="group" aria-label="${label} shade">${list.map((sh, n) => `<button class="tsw" type="button" data-tk="${k}" data-ti="${n}" style="background:${hexOk(sh.hex) ? esc(sh.hex) : 'transparent'}" aria-pressed="${i === n}" aria-label="${esc(sh.product)} ${esc(sh.hex)}" title="${esc(sh.product)} ${esc(sh.hex)}"></button>`).join('')}<button class="tsw none" type="button" data-tk="${k}" data-ti="-1" aria-pressed="${i === -1}">None</button></div>
+      <span class="tname">${cur ? esc((cur.kind === 'palette' ? '' : cur.brand + ' ') + cur.product) + ' · ' + esc(cur.hex) : list.length ? 'Not applied' : esc((tMk[k] && tMk[k].note) || 'No shades available')}</span></div></div>`; }).join('');
+  $('t-rows').querySelectorAll('[data-tk]').forEach(b => b.onclick = () => { tPick[b.dataset.tk] = +b.dataset.ti; drawTRows(); tQueue(); });
+}
+const tQueue = () => { if (tAuto) { clearTimeout(tTimer); tTimer = setTimeout(tApply, 450); } };   // after the first preview, changes re-apply automatically
+async function tApply() {
+  if (!tFile || !tMk) return;
+  if (tBusy) { tPending = true; return; }
+  const q = new URLSearchParams({strength: $('strength').value}), on = [];
+  T_ROWS.forEach(([k]) => { const sh = shadeList(tMk[k], k)[tPick[k]]; if (sh && hexOk(sh.hex)) { q.set(k + '_hex', sh.hex); on.push(k); } });
+  if (!on.length) { $('t-status').textContent = 'Choose at least one shade to apply.'; return; }
+  tBusy = true; tPending = false; const my = tSeq; $('t-go').disabled = true; $('t-status').innerHTML = '<span class="load"></span>Applying shades…';
+  try {
+    let r; try { r = await fetch(API_BASE + TRYON + '?' + q, {method: 'POST', body: tFile}); } catch (_) { const e = new Error('Could not reach the server.'); e.status = 0; throw e; }
     if (!r.ok) { const j = await r.json().catch(() => ({})); const e = new Error(detailOf(j) || 'Request failed (' + r.status + ')'); e.status = r.status; throw e; }
-    tResult = URL.createObjectURL(await r.blob());
-    const applied = (r.headers.get('X-Applied') || '').split(',').filter(Boolean), skipped = on.filter(k => !applied.includes(k));
-    tShow(true); $('t-status').textContent = 'Preview ready. Applied: ' + (applied.join(', ') || 'nothing') + (skipped.length ? '. Skipped ' + skipped.join(', ') + ' because that area could not be found in this photo.' : '.') + ' Use Before and After to compare.';
-  } catch (e) { $('t-status').innerHTML = `<span class="err" role="alert">${e.status === 422 ? 'No face found in this photo, so shades could not be applied.' : e.status === 400 ? 'That file could not be read as an image.' : e.status === 413 ? 'That photo is over 5 MB. Choose a smaller one.' : 'Try-on unavailable: ' + esc(e.message)}</span>`; }
-  $('t-go').disabled = false;
-};
+    const blob = await r.blob();
+    if (my === tSeq) {
+      if (tResult) URL.revokeObjectURL(tResult); tResult = URL.createObjectURL(blob); $('t-save').href = tResult; $('t-save').hidden = false; tAuto = true;
+      const applied = (r.headers.get('X-Applied') || '').split(',').filter(Boolean), skipped = on.filter(k => !applied.includes(k));
+      tShow(true); $('t-status').textContent = 'Preview ready. Applied: ' + (applied.join(', ') || 'nothing') + (skipped.length ? '. Skipped ' + skipped.join(', ') + ' because that area could not be found in this photo.' : '.') + ' Change a shade or the strength and it updates.';
+    }
+  } catch (e) { if (my === tSeq) $('t-status').innerHTML = `<span class="err" role="alert">${tErr(e)}</span>`; }
+  tBusy = false; if (my === tSeq) $('t-go').disabled = false;
+  if (tPending) tApply();
+}
+/* keep the studio in step with the consultation photo */
+function updateMoment() {
+  $('t-mine').hidden = !photoFile;
+  if (!photoFile && tFromConsult) { tReset(); tFromConsult = false; return; }
+  if (photoFile && !tFile) tUse(photoFile, {fromConsult: true, face, makeup: studioData && studioData.lips ? studioData : null});
+  else if (photoFile && tFromConsult && tFile === photoFile && studioData && studioData.lips && tMk !== studioData) { tMk = studioData; drawTRows(); }
+}
+document.querySelectorAll('#t-samples [data-sample]').forEach(b => b.onclick = async () => {
+  const n = b.dataset.sample; b.disabled = true;
+  try { const blob = await (await fetch(`assets/demo-face-${n}.jpg`)).blob(); await tUse(blob, {sample: n}); } catch (e) { $('t-read').innerHTML = `<span class="err" role="alert">Could not load the sample photo.</span>`; }
+  b.disabled = false;
+});
+$('t-file').onchange = () => { const f = $('t-file').files[0]; if (f) tUse(f); $('t-file').value = ''; };
+$('t-pick').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('t-file').click(); } };
+$('t-mine').onclick = () => { if (photoFile) tUse(photoFile, {fromConsult: true, face, makeup: studioData && studioData.lips ? studioData : null}); };
+$('t-before').onclick = () => tShow(false); $('t-after').onclick = () => tShow(true);
+$('strength').oninput = () => { $('strength-out').textContent = Math.round($('strength').value * 100) + '%'; tQueue(); };
+$('t-go').onclick = tApply;
 tShow(true); updateMoment();
 
 /* ---- web results ---- */
@@ -1128,8 +1235,52 @@ $('rc-go').onclick = async () => {
 };
 drawRc();
 
-/* ---- the real numbers behind "How this works" ---- */
-api('/model-info').then(m => { if (m.sentiment_auc) $('hw-sent').textContent = m.sentiment_auc + ' AUC'; if (m.holdout) $('hw-score').textContent = m.holdout.auc + ' AUC on users the model never saw'; if (m.version) $('hw-ver').textContent = m.version; }).catch(() => {});
+/* ---- Under the hood: GET /api/v1/system ---- */
+const fmt = (x, d = 3) => x == null ? 'n/a' : Number(x).toFixed(d);
+function systemHtml(j) {
+  const m = j.model, h = m.holdout || {}, d = j.data, p = j.pipeline, mon = j.monitoring, reg = j.registry, w = p.score_weights;
+  const kv = rows => `<dl class="kv">${rows.map(r => `<dt>${esc(r[0])}</dt><dd class="mono">${esc(r[1])}</dd>`).join('')}</dl>`;
+  const drift = Object.entries(mon.drift.features || {}).map(([k, v]) => `${esc(nice(k))}: <span class="drift-${esc(v)}">${esc(v)}</span>`).join(' · ') || (mon.drift.status === 'insufficient_data' ? 'not enough traffic yet to measure' : esc(mon.drift.status));
+  const share = (a, b) => b ? Math.round(100 * a / b) + '%' : 'no votes yet';
+  const pc = o => Object.entries(o).map(([k, v]) => `${nice(k)} ${Math.round(v * 100)}%`).join(', ');
+  return `<div class="sysg">
+   <div class="sysc"><h3>The recommendation model</h3>${kv([['Version', m.version], ['Method', m.algorithm || 'n/a'], ['Trained', (m.trained_at || '').slice(0, 10) || 'n/a'], ['AUC on unseen users', fmt(h.auc)], ['Brier / calibration error', fmt(h.brier) + ' / ' + fmt(h.ece)], ['Unseen reviews tested on', h.n_reviews ?? 'n/a']])}
+    <p class="hint">Predicting one person's rating from a product is hard. An AUC around 0.6 is only slightly better than the site's own star rating. What the score adds is calibration (a stated 80% behaves like 80%) and a breakdown of every point.</p></div>
+   <div class="sysc"><h3>Understanding reviews</h3>${kv([['Method', m.review_model || 'n/a'], ['AUC', fmt(m.review_auc)], ['Accuracy', m.review_accuracy == null ? 'n/a' : Math.round(m.review_accuracy * 100) + '%'], ['Reviews in the data', d.reviews ?? 'n/a']])}
+    <p class="hint">This model is genuinely strong because it reads what the same reviewer wrote. Themes such as hydration or scent are judged against how all other products score on them.</p></div>
+   <div class="sysc"><h3>The data</h3>${kv([['Products scored', d.products_scored], ...d.catalog.sources.map(s => [s.source, s.products + ' products']), ['Foundation shades', d.foundation_shades + ' from ' + d.foundation_brands + ' brands']])}
+    <p class="hint">Licences: ${d.catalog.sources.map(s => `${esc(s.source)}: ${esc(s.licence)}`).join('; ')}.</p></div>
+   <div class="sysc"><h3>How a pick is made</h3><ol class="syshist" style="font-family:var(--sans);font-size:15px;color:var(--ink);list-style:decimal;padding-left:20px">${p.stages.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
+    <p class="hint">The candidate stage keeps ${esc(p.candidate_limit)} products (cutting there lost nothing in testing); at most ${esc(p.max_per_brand)} per brand are shown. Score = ${esc(pc(w.without_concerns))}, or with concerns ${esc(pc(w.with_concerns))}. Recommended is ${esc(p.verdict_bands.recommended)} and above, Okay ${esc(p.verdict_bands.okay)} and above.</p></div>
+   <div class="sysc"><h3>Monitoring</h3>${kv([['Consultations served', mon.consultations], ['Feedback votes', mon.feedback_votes + ' (' + share(mon.helpful_votes, mon.feedback_votes) + ' helpful)'], ['Model in service', reg.champion ? 'champion' : 'n/a'], ['Versions registered', reg.versions]])}
+    <p class="hint">Drift check (recent vs earlier traffic): ${drift}.</p>
+    <ul class="syshist">${(reg.recent || []).slice(-4).map(e => `<li>${esc((e.at || '').slice(0, 10))} ${esc(e.event)} ${esc((e.version || '').slice(-6))}</li>`).join('')}</ul>
+    <p class="hint">A new model only replaces the current one if it passes a test on users it never trained on.</p></div>
+   <div class="sysc"><h3>Where it falls short</h3><ul class="meta" style="padding-left:18px;margin:0"><li>Skin colour, depth, undertone and photo hints are estimates from pixels; lighting changes them.</li><li>Lip, blush and eye colours are colour-theory rules with no ground truth for "what suits you".</li><li>The try-on has no face-landmark model: foundation, lips and blush only, on front-facing photos.</li><li>Sunscreens come from an open dataset with no prices or reviews, so they are unscored.</li><li>Concern guidance is general, not medical advice.</li><li>The data is small: ${esc(d.products_scored)} scored products and about ${esc(d.reviews)} reviews.</li></ul></div>
+  </div>`;
+}
+api('/api/v1/system').then(j => { $('system-body').innerHTML = systemHtml(j); }).catch(e => { $('system-body').innerHTML = `<span class="err" role="alert">Could not load the system status: ${esc(e.message)}</span>`; });
+
+/* ---- save / print the edit ---- */
+function editText(j) {
+  const L = [], P = j.profile || {}, money_ = v => v == null ? 'price n/a' : '$' + (+v).toFixed(2).replace(/\.00$/, '');
+  L.push('COLOUR ATELIER: MY BEAUTY EDIT', new Date().toISOString().slice(0, 10), '', 'PROFILE', `Skin type: ${P.skin_type || 'not set'}`);
+  (P.concerns || []).forEach(c => L.push(`- ${nice(c.concern)}${c.level ? ' (' + c.level + ')' : ''}: ` + (c.reasons || []).join('; ') + (c.helpful_ingredients ? ' | helpful: ' + c.helpful_ingredients.join(', ') : '')));
+  const mk = j.makeup || {}; if (mk.depth) L.push(`Colouring (estimate): depth ${mk.depth}, undertone ${mk.undertone} (${mk.undertone_basis})`);
+  L.push('', 'SKINCARE');
+  Object.entries(j.skincare || {}).forEach(([cat, items]) => { L.push(nice(cat)); items.forEach(p => L.push(`- ${p.name} (${p.brand}), ${money_(p.price)}` + (p.aicosmetic_score != null && p.aicosmetic_score !== 'n/a' ? `, ${p.aicosmetic_score}/100 ${p.verdict}` : ''))); });
+  const R = j.routine || {}; L.push('', 'ROUTINE');
+  [['Morning', R.am], ['Evening', R.pm]].forEach(([t, st]) => { L.push(t); (st || []).forEach((s, k) => L.push(`${k + 1}. ${nice(s.step)}: ${s.name || 'no product found'}` + (s.spf ? ` (SPF ${s.spf})` : ''))); });
+  (R.clashes || []).filter(c => c.severity === 'caution').forEach(c => L.push(`! ${c.slot.toUpperCase()}: ${c.products.join(' + ')}. ${c.message}`));
+  L.push('', 'MAKEUP');
+  ['foundation', 'lips', 'blush', 'eyes'].forEach(k => { const list = shadeList(mk[k], k); if (list.length) { L.push(nice(k)); list.forEach(sh => L.push(`- ${sh.brand === 'Suggested shade' ? '' : sh.brand + ' '}${sh.product} ${sh.hex}` + (sh.delta_e != null ? ` (colour difference ${sh.delta_e})` : ''))); } });
+  const S = j.shopping_list || {}, rows = S.products || (S.items || []).filter(x => typeof x === 'object'); L.push('', 'SHOPPING LIST');
+  rows.forEach(x => L.push(`- ${x.name} (${x.brand || ''}) ${money_(x.price)}`)); if (S.total_price != null) L.push(`Total of priced items: $${(+S.total_price).toFixed(2)}`);
+  L.push('', 'Informational only, not medical advice. Colour estimates depend on lighting.'); return L.join('\n');
+}
+$('save-edit').onclick = () => { if (!lastConsult) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([editText(lastConsult)], {type: 'text/plain'})); a.download = 'my-beauty-edit.txt'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+$('print-edit').onclick = () => window.print();
+
 </script>
 <script>
 /* ===== animated answers ===== */

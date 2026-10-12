@@ -59,10 +59,10 @@ def test_the_try_on_uses_the_real_endpoint_and_parameter_names(client):
     assert "/api/v1/makeup/tryon" in HTML and "/face/tryon" not in HTML
     op = client.get("/openapi.json").json()["paths"]["/api/v1/makeup/tryon"]["post"]
     params = {p["name"] for p in op["parameters"]}
-    keys = re.findall(r"\['(\w+)', '[A-Z]\w+'\]", re.search(r"const tParts = .*", HTML).group(0))
+    keys = re.findall(r"\['(\w+)', '[A-Z]\w+'\]", re.search(r"const T_ROWS = .*", HTML).group(0))
     assert set(keys) == {"foundation", "lips", "blush"}
-    assert {f"{k}_hex" for k in keys} <= params and "strength" in params          # the page builds p[0] + '_hex'
-    assert "p[0] + '_hex'" in HTML
+    assert {f"{k}_hex" for k in keys} <= params and "strength" in params          # the page builds k + '_hex'
+    assert "k + '_hex'" in HTML
 
 
 def test_the_page_never_fabricates_results_when_the_api_fails():
@@ -191,3 +191,10 @@ def test_inline_scripts_have_no_syntax_errors():
             f.write(code)
         r = subprocess.run(["node", "--check", f.name], capture_output=True, text=True)
         assert r.returncode == 0, f"script block {i}: {r.stderr[:400]}"
+
+
+def test_every_v1_endpoint_the_page_uses_for_the_new_studio_exists(client):
+    paths = client.get("/openapi.json").json()["paths"]
+    for url in ("/api/v1/makeup/suggest", "/api/v1/makeup/brands", "/api/v1/makeup/match", "/api/v1/system"):
+        assert url in paths and url in HTML, url
+    assert "liked_product_ids" in HTML and "per_category" in HTML
