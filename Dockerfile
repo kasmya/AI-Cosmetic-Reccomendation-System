@@ -17,8 +17,8 @@ RUN mkdir -p models/registry var && python -m cosmetic_rec.train \
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-  CMD python -c "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=4)"
+  CMD python -c "import os, urllib.request as u; u.urlopen('http://localhost:%s/health' % os.environ.get('PORT', '8000'), timeout=4)"
 
-# Worker count from WEB_CONCURRENCY (default 2). The metrics directory is emptied at start so counters from a previous
-# run are not mixed in.
-CMD ["sh", "-c", "rm -rf $PROMETHEUS_MULTIPROC_DIR && mkdir -p $PROMETHEUS_MULTIPROC_DIR && exec uvicorn cosmetic_rec.api:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-2}"]
+# Listens on $PORT (hosts such as Render set it; default 8000) with WEB_CONCURRENCY workers (default 2; use 1 on a
+# 512 MB host). The metrics directory is emptied at start so counters from a previous run are not mixed in.
+CMD ["sh", "-c", "rm -rf $PROMETHEUS_MULTIPROC_DIR && mkdir -p $PROMETHEUS_MULTIPROC_DIR && exec uvicorn cosmetic_rec.api:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-2}"]

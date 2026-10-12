@@ -65,17 +65,25 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+def normalise_url(url: str) -> str:
+    """Hosts (Neon, Render, Heroku...) hand out postgres:// or postgresql:// URLs; SQLAlchemy needs the driver named."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def database_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if url:
-        return url
+        return normalise_url(url)
     VAR_DIR.mkdir(exist_ok=True)
     return f"sqlite:///{VAR_DIR / 'app.db'}"
 
 
 class Database:
     def __init__(self, url: str | None = None):
-        self.url = url or database_url()
+        self.url = normalise_url(url) if url else database_url()
         self.engine: Engine = create_engine(self.url, pool_pre_ping=True, future=True)
         self._session = sessionmaker(self.engine, expire_on_commit=False)
         Base.metadata.create_all(self.engine)

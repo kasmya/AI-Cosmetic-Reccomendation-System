@@ -1,0 +1,19 @@
+# Render Blueprint: the API as a Docker web service on the free plan.
+# New > Blueprint > pick this repo. Then set DATABASE_URL (and TAVILY_API_KEY if you want live web results) in the dashboard.
+# Free plan: 512 MB RAM (the app needs about 340 MB with one worker), sleeps after 15 minutes idle (first request after
+# that takes about a minute), no persistent disk. Render describes free services as for hobby projects, not production.
+services:
+  - type: web
+    name: cosmetic-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: DATABASE_URL          # from Neon: postgresql://user:pass@host/db?sslmode=require
+        sync: false
+      - key: TAVILY_API_KEY        # optional
+        sync: false
+      - key: OPS_TOKEN             # protects /metrics and /api/v1/ops/*
+        generateValue: true
