@@ -9,10 +9,11 @@ COPY cosmetic_rec ./cosmetic_rec
 COPY data ./data
 COPY frontend ./frontend
 
-# Train and register the first model at build time, so the container starts instantly. A mounted registry volume is
-# seeded from this content the first time it is used.
-RUN mkdir -p models/registry var && python -m cosmetic_rec.train \
-    && useradd --create-home app && chown -R app /app
+# The trained model registry is committed (models/registry, about 7 MB) because training on a free build machine takes
+# over an hour. scikit-learn, numpy, pandas and joblib are pinned to the versions that produced it. To retrain, run
+# `python -m cosmetic_rec.train` locally and commit the new registry.
+COPY models/registry ./models/registry
+RUN mkdir -p var && useradd --create-home app && chown -R app /app
 
 USER app
 EXPOSE 8000

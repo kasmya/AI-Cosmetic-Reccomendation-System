@@ -1,0 +1,2 @@
+{"at": "2026-10-11T20:24:36+00:00", "event": "registered", "version": "v20261011-202436-7896cb", "holdout": {"auc": 0.5924, "brier": 0.1778, "ece": 0.0185, "n_reviews": 1739}}
+{"at": "2026-10-11T20:24:36+00:00", "event": "promoted", "version": "v20261011-202436-7896cb", "previous_champion": null, "decision": {"promote": true, "reason": "first model", "challenger": {"auc": 0.5924, "brier": 0.1778, "ece": 0.0185, "n_reviews": 1739}}}

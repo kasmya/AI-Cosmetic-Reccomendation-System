@@ -1,0 +1,19 @@
+{
+  "version": "v20261011-202436-7896cb",
+  "holdout": {
+    "auc": 0.5924,
+    "brier": 0.1778,
+    "ece": 0.0185,
+    "n_reviews": 1739
+  },
+  "config": {
+    "hgb": {
+      "max_depth": 3,
+      "learning_rate": 0.05,
+      "max_iter": 200
+    },
+    "svd_dim": 20,
+    "calibration": "sigmoid",
+    "seed": 42
+  }
+}
