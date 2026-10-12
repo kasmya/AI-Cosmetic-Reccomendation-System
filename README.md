@@ -10,13 +10,13 @@ Two features behind one REST API:
 ```mermaid
 flowchart LR
   subgraph Skincare
-    R[(8.6k reviews)] --> F[Feature engineering] --> G[Gradient boosting P&lpar;like&rpar;]
+    R[("8.6k reviews")] --> F[Feature engineering] --> G["Gradient boosting P(like)"]
     R --> T[TF-IDF + SVD ingredient embeddings]
     G --> H[Hybrid ranker + filters]
     T --> H
   end
   subgraph Makeup
-    P[Face photo] --> O[OpenCV: Haar face detect, k-means skin colour, CIELAB] --> K[k-NN over 621 shades]
+    P[Face photo] --> O["OpenCV: Haar face detect, k-means skin colour, CIELAB"] --> K[k-NN over 621 shades]
   end
   H --> A[FastAPI + Pydantic]
   K --> A
@@ -26,10 +26,10 @@ flowchart LR
 ## System architecture
 ```mermaid
 flowchart LR
-  UI[Web UI] --> API[FastAPI, N workers]
-  API --> S0[constraints] --> S1[candidate retrieval] --> S2[ranker: calibrated GBM + taste + concerns] --> S3[brand re-rank]
-  API --> DB[(PostgreSQL / SQLite: events, feedback)]
-  DB --> RT[retrain job] --> REG[(model registry: gold-holdout gate, champion, rollback)]
+  UI[Web UI] --> API["FastAPI, N workers"]
+  API --> S0[constraints] --> S1[candidate retrieval] --> S2["ranker: calibrated GBM + taste + concerns"] --> S3[brand re-rank]
+  API --> DB[("PostgreSQL / SQLite: events, feedback")]
+  DB --> RT[retrain job] --> REG[("model registry: gold-holdout gate, champion, rollback")]
   REG --> API
   API --> MET["/metrics"] --> PROM[Prometheus] --> GRAF[Grafana]
   DB --> DRIFT[drift PSI] --> MET
